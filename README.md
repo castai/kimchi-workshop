@@ -67,8 +67,9 @@ pip install -r requirements.txt
 python -m pytest tests/ -q
 ```
 
-> ✅ **5 passed, 4 failed is correct.** The failures are the workshop.
-> Collection errors mean the venv is wrong - redo step 3.
+> ✅ **5 passed, 4 failed is correct.** The failures are the workshop -
+> and they are deeper than they look. The full contract is bigger than
+> the visible suite (see `workshop/CHALLENGES.md`).
 
 **5. Launch the agent (full-size terminal, 80x24+)**
 

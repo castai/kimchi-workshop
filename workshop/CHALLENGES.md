@@ -1,77 +1,48 @@
-# Workshop challenges
+# Workshop challenges - hardened edition
 
-The repo you are holding is deliberately broken in three places, and its
-backlog is deliberately unimplemented. Fix the app, not the tests. The
-challenges below escalate; each one maps to a module of the tasting menu
-(see workshop/AGENDA.md).
+The repo you are holding is broken in ways that do NOT fall to a single
+prompt. Every defect interacts with another system: fixing the obvious
+one breaks a policy test you cannot see. The visible test suite
+(`pytest tests/ -q`, 4 failing) is the entry ticket. The real bar is a
+hidden verification suite (V1-V9) the scorer runs against your PR -
+points come from how much of that contract you satisfy.
 
-## How scoring works
+Expect: 2+ hours, multiple diagnosis-fix-verify loops, and reading code
+you did not write. If a hundred people start, a handful finish.
 
-Every challenge runs through your Kimchi session. Tag yourself first:
+## The seeded defect map
 
-```
-/tags add attendee:<handle>
-```
+| Area | File | The rot | The intended policy |
+| --- | --- | --- | --- |
+| Secret hygiene | `app/config.py` | hardcoded `SECRET_KEY`, `DEBUG=True` | env-driven, debug off by default |
+| Input validation | `app/app.py` create | KeyError 500s, accepts any priority | 400s with JSON bodies; priority int 1-5 |
+| Error wiring | `app/errors.py` | handlers written, never registered | clean 400/404/429/500 JSON |
+| Rate limiting | `app/app.py` | limiter built PER REQUEST (never limits) | one shared limiter; 429 + Retry-After |
+| Caching | `app/app.py` list | one key, ignores params; never invalidated | key includes status/limit/offset; writes invalidate |
+| Pagination | missing | no limit/offset | `{"tasks", "total", "limit", "offset"}`, cap 100 |
+| CSV export | missing | none | right headers, right columns, reflects deletes |
+| GC policy | `app/storage.py` | recency vs created_at; active olds reaped wrongly | last ACTIVITY (updated_at > completed_at > created_at) |
+| Sync merge | `app/storage.py` | incoming always wins, even when older | later updated_at wins; tie keeps local |
+| Timestamps | `app/storage.py` | naive `utcnow()`; comparisons break | UTC-aware everywhere, round-trips |
 
-Points: tests passing, PR review score, and cost efficiency. Full model in
-workshop/SCORING.md. The leaderboard on the Kimchi console (filtered by
-your event's tags) is the live scoreboard - cost, requests, models.
+## The rules
 
-## The ladder
+- Fix the app, not the tests. `tests/` is read-only for scoring.
+- The store's policy docstrings describe the INTENDED behavior; the
+  code does something else. Trust the docstring, not the code.
+- Route handlers, cache keys, and the limiter interact: a fix in one
+  place can break a contract elsewhere. Verify after every change.
+- Submit via PR (see workshop/PARTICIPANT.md). CI runs the visible
+  suite; the hidden suite decides your score.
 
-### Challenge 1 - Red to Green
+## Difficulty design (for facilitators)
 
-`pytest` fails. Make it pass. Learn to prompt, watch the phase footer
-(`↳ build`), and verify the result rather than trusting it.
-
-- One failing test needs the API to reject bad input instead of crashing.
-- There is an unwired helper in `app/errors.py` that renders a clean JSON
-  400. Registering it is one line - finding where is the exercise.
-- Bonus: `DEBUG = True` in `app/config.py` is production-adjacent rot.
-
-### Challenge 2 - The Secret Ingredient
-
-A secret key is hardcoded in `app/config.py`, and one endpoint trusts its
-input more than it should. Find both with the agent, fix both, and check
-the diff before you commit. First correct fix shown on the room screen
-wins a prize.
-
-### Challenge 3 - Teach It a Recipe
-
-Write your first skill: `.kimchi/skills/release-notes/SKILL.md`. Fill in the
-template in `.kimchi/skills/workshop-skill-template/SKILL.md`, restart the
-session, invoke with `/release-notes`. Your skill must survive the
-cross-agent test: it follows the open Agent Skills spec, so it also works
-in Claude Code, Cursor, and any compliant agent.
-
-### Challenge 4 - Backlog levels
-
-Ship features from `workshop/BACKLOG.md`, in any order, one PR each:
-
-- **Level 1 - Filter**: `GET /tasks?status=open` returns only open tasks.
-  The store already filters; the route never asks it to.
-- **Level 2 - Pagination**: `GET /tasks?limit=N&offset=M` with sane defaults
-  and a `total` field in the response.
-- **Level 3 - Export**: `GET /tasks/export` returns CSV; Content-Type right,
-  streaming, no loading the whole file into memory twice.
-- **Level 4 - OAuth**: "Add Google OAuth login" - the canonical Ferment
-  goal from the Kimchi docs. This one is your Ferment Marathon entry.
-
-### Challenge 5 - The Budget Course
-
-Each attendee gets a service key with a hard cap. Ship a feature brief
-under budget. The scorer computes your efficiency from your tagged usage;
-the formula rewards output first, then cost. See workshop/SCORING.md.
-
-### Challenge 6 - The Overnight Pickle
-
-Still-running Ferment builds at the end of the day get teleported
-(`/teleport`) and judged next morning. The room reviews the PRs together.
-
-## Rules
-
-- Fix the app, not the tests. Test files are read-only for scoring runs.
-- Every challenge ends with a commit to your fork and (for challenges 4-6)
-  a pull request - that is where the Code Review score comes from.
-- Seeded defects are re-fixed per event run; the solutions branch
-  (`solutions`) has per-module reference implementations.
+- The visible 4 failures look like the old easy workshop. They are not:
+  two of them (filter, validation) now require the pagination contract
+  and the cache to be correct at the same time.
+- The hidden suite has 26 checks across 9 sections. Solving everything
+  took the reference implementer (an agent, unhindered) a full session
+  with several subtle policy fixes; a human pairing with an agent
+  should budget 2-3 hours.
+- Partial credit is the design: each V-section passed is real progress,
+  so the leaderboard rewards depth, not speed.
