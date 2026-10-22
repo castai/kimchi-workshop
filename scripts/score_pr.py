@@ -30,6 +30,25 @@ from score import compute_points, run_tests  # noqa: E402
 DEFAULT_BUDGET = 2.00
 
 
+def run_hidden_suite():
+    """Run .verification/test_hidden.py if present. Returns (passed, total)."""
+    path = os.path.join(REPO_ROOT, ".verification", "test_hidden.py")
+    if not os.path.exists(path):
+        return 0, 0
+    run = subprocess.run(
+        [sys.executable, "-m", "pytest", ".verification/", "-q", "--no-header",
+         "--tb=no", "-p", "no:cacheprovider"],
+        capture_output=True, text=True, cwd=REPO_ROOT,
+    )
+    out = run.stdout + run.stderr
+    import re
+    m = re.search(r"(\d+) passed", out)
+    passed = int(m.group(1)) if m else 0
+    m2 = re.search(r"(\d+) failed", out)
+    failed = int(m2.group(1)) if m2 else 0
+    return passed, passed + failed
+
+
 def parse_body(body):
     """Pull attendee / event / cost_usd / review_score from the PR body."""
     def grab(key):
@@ -80,6 +99,13 @@ def main():
         sys.exit(1)
 
     passed, failed = run_tests()
+
+    # hidden verification suite: the real bar (V1-V9). If it ran, its
+    # pass count feeds the score directly.
+    hidden_passed, hidden_total = run_hidden_suite()
+    if hidden_total:
+        passed = hidden_passed
+        failed = hidden_total - hidden_passed
 
     evidence = cost_usd is not None
     cost_val = cost_usd if cost_usd is not None else 0.0
