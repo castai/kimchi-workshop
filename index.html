@@ -131,9 +131,12 @@ const BOARD_URL = "leaderboard.json";
 async function load() {
   let board;
   try {
+    // cache-busting query: the GitHub Pages CDN caches JSON for ~10 min,
+    // a unique URL per fetch bypasses the edge cache so updates land fast
+    const bust = "?t=" + Date.now();
     const [configRes, boardRes] = await Promise.all([
-      fetch(CONFIG_URL, {cache: "no-store"}),
-      fetch(BOARD_URL, {cache: "no-store"}),
+      fetch(CONFIG_URL + bust, {cache: "no-store"}),
+      fetch(BOARD_URL + bust, {cache: "no-store"}),
     ]);
     board = await boardRes.json();
     const config = configRes.ok ? await configRes.json() : {};
