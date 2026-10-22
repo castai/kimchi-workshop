@@ -26,29 +26,16 @@ jobs:
       - name: Score the submission
         env:
           PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
         run: |
+          printf '%s' "$PR_BODY" > body.txt
           python scripts/score_pr.py \
             --pr "${{ github.event.pull_request.number }}" \
             --author "${{ github.event.pull_request.user.login }}" \
             --url "${{ github.event.pull_request.html_url }}" \
             --title "$PR_TITLE" \
-            --body-file <(curl -sfL -H "Authorization: Bearer ${{ github.token }}" \
-              -H "Accept: application/vnd.github+json" \
-              "${{ github.event.pull_request.url }}") \
-            --out score.json --summary summary.md || true
-          # fall back: write the body from the event payload if curl failed
-          if [ ! -f score.json ]; then
-            cat > body.txt <<'EOF'
-          ${{ github.event.pull_request.body }}
-          EOF
-            python scripts/score_pr.py \
-              --pr "${{ github.event.pull_request.number }}" \
-              --author "${{ github.event.pull_request.user.login }}" \
-              --url "${{ github.event.pull_request.html_url }}" \
-              --title "$PR_TITLE" \
-              --body-file body.txt \
-              --out score.json --summary summary.md
-          fi
+            --body-file body.txt \
+            --out score.json --summary summary.md
 
       - name: Upload score artifact
         if: always()
