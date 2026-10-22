@@ -76,7 +76,7 @@ run `kimchi setup` once to persist login.
 ### 0.3 Get the repo and its dependencies
 
 ```bash
-git clone https://github.com/kunalcast/kimchi-workshop.git
+git clone https://github.com/castai/kimchi-workshop.git
 cd kimchi-workshop
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
