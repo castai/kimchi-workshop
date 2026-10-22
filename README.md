@@ -1,103 +1,165 @@
-# Kimchi Workshop - build an app with the governed coding agent
+<div align="center">
 
-A hands-on workshop repo: a deliberately broken task-tracker app, a ladder
-of challenges, and a leaderboard that is literally the Kimchi console
-filtered by your tags. You fix real repo rot, ship real features, write
-your own skills, and watch what multi-model routing does to your bill.
+# 🥬 kimchi-workshop
 
-**Everything here is open source (Apache-2.0). Fork it, run it, teach it.**
+**A hands-on workshop for the [kimchi](https://kimchi.dev) coding agent.**
 
-## Quick start
+Fix a deliberately broken repo. Ship real features. Write your own skill.
+Delegate a project to an autonomous agent. Then look at the bill
+together - because the leaderboard *is* the product's cost console.
+
+[Quick start](#-quick-start) · [The challenges](#-the-challenges) · [Scoring](#-scoring) · [License](#-license)
+
+**Apache-2.0** - fork it, run it, teach it. No permission needed.
+
+</div>
+
+---
+
+## 🧭 What this is
+
+| | |
+| --- | --- |
+| **The repo** | A small task-tracker API (Flask + pytest), deliberately broken in 3 places, with 4 unimplemented features |
+| **The agent** | [kimchi](https://github.com/getkimchi/kimchi) - a terminal coding agent that routes each step to the right model |
+| **The game** | Points for output (tests, review score), points for efficiency (cost vs budget). Nothing for doing nothing |
+| **The twist** | Every request you make carries your tags. The workshop leaderboard is literally the usage console filtered by them |
+
+The workshop runs in three formats off this one repo: a 2.5h guided lab
+(the **tasting menu**), a half-day **builder sprint**, and a **self-paced
+codelab** (you are doing that one right now).
+
+> **Participant walkthrough, step by step, with every solution in
+> detail:** [`workshop/PARTICIPANT.md`](workshop/PARTICIPANT.md)
+>
+> **Running the event?** [`workshop/FACILITATOR.md`](workshop/FACILITATOR.md)
+
+---
+
+## 🚀 Quick start
+
+**1. Install the agent**
 
 ```bash
-# 1. install the agent (pick one)
 curl -fsSL https://github.com/getkimchi/kimchi/releases/latest/download/install.sh | bash
-brew install getkimchi/tap/kimchi            # macOS / Linux
+# or: brew install getkimchi/tap/kimchi
+```
 
-# 2. clone and enter
+**2. Get access** - sign up at [app.kimchi.dev](https://app.kimchi.dev)
+(no card), or export an event key if you were given one:
+
+```bash
+export KIMCHI_API_KEY=<key>    # add to ~/.bashrc or ~/.zshrc - env keys don't persist
+```
+
+**3. Clone and set up**
+
+```bash
 git clone https://github.com/<org>/kimchi-workshop.git
 cd kimchi-workshop
-
-# 3. python deps
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
+```
 
-# 4. verify the seeded state (4 failing tests is correct - 3 seeded defects)
-python3 -m pytest tests/ -q
+**4. Verify the seeded state**
 
-# 5. start the agent in the repo
+```bash
+python -m pytest tests/ -q
+```
+
+> ✅ **5 passed, 4 failed is correct.** The failures are the workshop.
+> Collection errors mean the venv is wrong - redo step 3.
+
+**5. Launch the agent (full-size terminal, 80x24+)**
+
+```bash
 kimchi
 ```
 
-On first launch: log in, then **trust the project** when asked (it has a
-`.kimchi/` config) - project tags only load from trusted projects, so the
-workshop tag won't attribute without it. Then tag yourself:
+On first run: **Trust** the project (it has a `.kimchi/` config - tags and
+skills need trust to load), log in, then tag yourself:
 
 ```
-/tags add attendee:<handle>
+/tags add attendee:<your-handle>
 ```
 
-Or just run `/workshop-setup-check` and the agent walks you through it.
+Shortcut: `/workshop-setup-check` verifies all of it for you.
 
-Note: if you authenticate with `KIMCHI_API_KEY` as an env var, the var must
-be set every launch (add it to your shell profile), or run `kimchi setup`
-once to persist login.
+---
 
-## The challenges
+## 🍽️ The challenges
 
-Read `workshop/CHALLENGES.md`. Short version:
+The full ladder with rules and solutions: [`workshop/CHALLENGES.md`](workshop/CHALLENGES.md)
 
-| # | Challenge | What it teaches |
+| # | Challenge | Teaches | Time |
+| --- | --- | --- | --- |
+| 1 | **Red to Green** - make the failing tests pass | Verify, don't trust; the phase footer | 10 min |
+| 2 | **The Secret Ingredient** - find the hardcoded key, fix the config | Security review; diff discipline | 15 min |
+| 3 | **Teach It a Recipe** - write your first skill | Portable SKILL.md authorship | 15 min |
+| 4 | **Backlog levels** - filter → pagination → export → OAuth | Feature shipping, one PR each | 25 min |
+| 5 | **The Budget Course** - ship under a hard cap | Spend governance as a game | 10 min |
+| 6 | **The Overnight Pickle** - teleported ferments, judged next morning | Delegation, remote execution | overnight |
+
+The seeded defects, mapped:
+
+| Defect | Where | Caught by |
 | --- | --- | --- |
-| 1 | Red to Green | prompting, verification, the phase footer |
-| 2 | The Secret Ingredient | security review, diff review discipline |
-| 3 | Teach It a Recipe | writing skills (portable, Agent Skills spec) |
-| 4 | Backlog levels 1-4 | feature shipping, one PR each |
-| 5 | The Budget Course | spend governance as a game |
-| 6 | The Overnight Pickle | Ferment + Teleport, judged next morning |
+| Hardcoded `SECRET_KEY` | `app/config.py` | `test_secret_key_is_not_hardcoded` |
+| Unwired error handlers | `app/errors.py` (written, never registered) | validation tests |
+| No input validation | `app/app.py` `create_task` | validation tests |
+| Ignored `?status=` param | `app/app.py` `list_tasks` | filter test |
 
-Scoring: `workshop/SCORING.md`. Backlog: `workshop/BACKLOG.md`.
-Run-of-show for organizers: `workshop/INSTRUCTOR.md`.
+---
 
-## Three access tracks
+## 🏆 Scoring
 
-The workshop works even if you cannot sign up on the spot:
-
-1. **Managed** - Kimchi account, full multi-model. The default path.
-2. **Browser-only** - Remote Workspace + Web IDE, nothing installed. Needs
-   a plan that includes Remote Workspaces.
-3. **Offline** - Ollama locally: `ollama pull llama3.2:1b`, keep it running,
-   start kimchi, pick `ollama/llama3.2:1b` in `/model`. No account, no spend.
-   Local models join explorer/reviewer/builder pools automatically.
-
-## Repo layout
+Full model: [`workshop/SCORING.md`](workshop/SCORING.md)
 
 ```
-app/                the broken task tracker (Flask)
-tests/              the specs - fix the app, not the tests
-workshop/           challenges, backlog, scoring, instructor guide
+output     = tests_passed × 10 + (review_score / 100) × 50
+efficiency = ±20 based on your spend vs the budget
+points     = output + efficiency
+```
+
+- **Output first**: a cheap no-op always loses to real work.
+- **Evidence required**: no usage export, no efficiency points.
+- The leaderboard is the console filtered by your tags - cost, requests,
+  models, latency, all live.
+
+Submit: open a submission issue, or
+`python scripts/score.py --attendee <handle> --usage export.csv --pr <URL>`.
+
+---
+
+## 🗂️ Repo layout
+
+```
+app/               the broken task tracker (Flask)
+tests/             the specs - fix the app, not the tests
+workshop/          PARTICIPANT.md, FACILITATOR.md, CHALLENGES.md,
+                   BACKLOG.md, SCORING.md, INSTRUCTOR.md (run-of-show)
 .kimchi/
-  tags.json         project + workshop tags (10-tag cap, trust required)
-  skills/           workshop skills - setup-check + skill template
-scripts/            score.py, leaderboard.py, run.sh
-submissions/        per-attendee scoring records (created on demand)
-.github/            CI (tests + leaderboard rebuild) + submission issue template
+  tags.json        project + workshop tags (attribution)
+  skills/          workshop-setup-check, skill template
+scripts/           score.py, leaderboard.py, run.sh
+.github/           CI (tests + leaderboard rebuild), submission issue form
 ```
 
-## Submitting
+`solutions` branch: reference fixes for every challenge, all tests green.
 
-Open a PR for challenges 4-6 (that is what Code Review scores). Then either
-attach your console usage export to the submission issue, or run:
+---
 
-```bash
-python scripts/score.py --attendee <handle> --usage export.csv --pr <PR URL>
-```
+## 🔌 Three access tracks
 
-The submission issue template (`.github/ISSUE_TEMPLATE/submission.yml`)
-captures handle, PR, cost, and notes. Organizers merge everything into
-`leaderboard.json` via `scripts/leaderboard.py`.
+| Track | How | For whom |
+| --- | --- | --- |
+| **Managed** | kimchi account, full multi-model | The default |
+| **Browser-only** | Remote Workspace + Web IDE, zero install | Locked-down laptops (needs a plan with Remote Workspaces) |
+| **Offline** | `ollama pull llama3.2:1b`, pick it in `/model` | No account, no spend, air-gapped rooms |
 
-## License
+---
 
-Apache-2.0. The seeded app, the challenges, the skills, the scorer: all of
-it. Run your own event without asking permission.
+## 📜 License
+
+Apache-2.0. The app, the challenges, the skills, the scorer - all of it.
+Run your own event without asking.
