@@ -98,6 +98,8 @@ def test_list_tasks_filters_by_status(client):
 
     resp = client.get("/tasks?status=open")
     assert resp.status_code == 200
-    tasks = resp.get_json()
+    body = resp.get_json()
+    tasks = body["tasks"]
+    assert body["total"] == 1
     assert len(tasks) == 1
     assert tasks[0]["title"] == "two"

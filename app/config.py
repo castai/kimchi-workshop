@@ -1,13 +1,11 @@
-"""Ferment Board - workshop configuration.
-
-Seed state: intentionally bad. Do not copy these patterns into anything real.
-"""
+"""Ferment Board - workshop configuration."""
 import os
 
-# TODO: move this to an environment variable before anyone notices
-SECRET_KEY = "sk-live-kimchi-workshop-9f8e7d6c5b4a"
+# Read from the environment; the fallback is for local development only.
+SECRET_KEY = os.environ.get("TASK_API_SECRET", "dev-only-insecure-fallback")
 
-DEBUG = True
+# Debug is a deployment concern, not a source constant.
+DEBUG = os.environ.get("TASK_API_DEBUG", "false").lower() == "true"
 
 # Workshop tuning knobs (all overridable by env for tests)
 STALE_DAYS = int(os.environ.get("STALE_DAYS", "7"))
