@@ -129,7 +129,7 @@ points     = output + efficiency
 
 ### 📊 The live board
 
-Every accepted submission lands on the [live workshop leaderboard](https://kunaldas.net/kimchi-workshop/) - event dropdown (run a
+Every accepted submission lands on the [live workshop leaderboard](https://kunalcast.github.io/kimchi-workshop/) - event dropdown (run a
 whole series off one repo), top-10/20/50 selector, participant search,
 60-second auto-refresh. Facilitators: the `accepted` label on a PR is the
 whole evaluation action.
