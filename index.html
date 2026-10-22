@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kimchi Workshop - Leaderboard</title>
+<style>
+  :root {
+    --bg: #0d1117; --card: #161b22; --border: #30363d;
+    --text: #e6edf3; --muted: #8b949e; --accent: #2ea043;
+    --gold: #e3b341; --silver: #adbac7; --bronze: #d0a27a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+      Helvetica, Arial, sans-serif;
+    background: var(--bg); color: var(--text);
+    min-height: 100vh; padding: 24px;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; }
+  header { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin-bottom: 6px; }
+  h1 { font-size: 26px; font-weight: 700; letter-spacing: -0.5px; }
+  h1 .kimchi { color: var(--accent); }
+  .sub { color: var(--muted); font-size: 13px; }
+  .controls {
+    display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
+    margin: 18px 0 14px; padding: 12px; background: var(--card);
+    border: 1px solid var(--border); border-radius: 10px;
+  }
+  .controls label { font-size: 12px; color: var(--muted); display: block; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+  select, input[type="search"] {
+    background: var(--bg); color: var(--text); border: 1px solid var(--border);
+    border-radius: 6px; padding: 8px 10px; font-size: 14px; min-width: 180px;
+  }
+  input[type="search"] { min-width: 220px; }
+  .meta { margin-left: auto; font-size: 12px; color: var(--muted); text-align: right; }
+  table { width: 100%; border-collapse: collapse; background: var(--card);
+    border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  th, td { padding: 11px 14px; text-align: left; font-size: 14px; }
+  thead th {
+    background: #1c2129; color: var(--muted); font-size: 11px;
+    text-transform: uppercase; letter-spacing: 0.8px; border-bottom: 1px solid var(--border);
+  }
+  tbody tr { border-bottom: 1px solid var(--border); }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: #1c2129; }
+  .rank { width: 64px; font-weight: 700; }
+  .rank-1 { color: var(--gold); } .rank-2 { color: var(--silver); } .rank-3 { color: var(--bronze); }
+  .medal { font-size: 15px; margin-right: 4px; }
+  .handle { font-weight: 600; }
+  .gh { color: var(--muted); font-size: 12px; }
+  .pts { font-weight: 700; color: var(--accent); }
+  .bar { height: 5px; width: 100%; background: var(--bg); border-radius: 3px; overflow: hidden; margin-top: 4px; }
+  .bar i { display: block; height: 100%; background: linear-gradient(90deg, #238636, #2ea043); border-radius: 3px; }
+  .pill {
+    display: inline-block; padding: 2px 8px; border-radius: 999px;
+    font-size: 11px; border: 1px solid var(--border); color: var(--muted);
+  }
+  .empty { padding: 48px; text-align: center; color: var(--muted); }
+  footer { margin-top: 16px; color: var(--muted); font-size: 12px; display: flex; justify-content: space-between; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .tooltip { position: relative; cursor: default; border-bottom: 1px dotted var(--muted); }
+  .tooltip:hover::after {
+    content: attr(data-tip); position: absolute; bottom: 130%; left: 50%;
+    transform: translateX(-50%); background: var(--card); border: 1px solid var(--border);
+    padding: 6px 10px; border-radius: 6px; font-size: 12px; white-space: nowrap; color: var(--text); z-index: 5;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>🥬 <span class="kimchi">kimchi</span> workshop leaderboard</h1>
+    <span class="sub" id="repo-sub"></span>
+  </header>
+
+  <div class="controls">
+    <div>
+      <label for="event">Event / workshop code</label>
+      <select id="event"></select>
+    </div>
+    <div>
+      <label for="topn">Show</label>
+      <select id="topn">
+        <option value="10">Top 10</option>
+        <option value="20">Top 20</option>
+        <option value="50">Top 50</option>
+        <option value="all" selected>All</option>
+      </select>
+    </div>
+    <div>
+      <label for="search">Find participant</label>
+      <input type="search" id="search" placeholder="handle or github login">
+    </div>
+    <div class="meta">
+      <div id="updated">loading…</div>
+      <div id="count"></div>
+    </div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th class="rank">#</th>
+        <th>Participant</th>
+        <th>PR</th>
+        <th class="tooltip" data-tip="tests passing in the submission PR">Tests</th>
+        <th class="tooltip" data-tip="self-reported spend from the console export">Cost</th>
+        <th class="tooltip" data-tip="output + efficiency; see workshop/SCORING.md">Points</th>
+      </tr>
+    </thead>
+    <tbody id="rows"></tbody>
+  </table>
+  <div class="empty" id="empty" style="display:none">
+    No accepted submissions yet for this event.<br><br>
+    Facilitators: accept a submission PR with the <code>accepted</code> label
+    and it appears here within a minute.
+  </div>
+
+  <footer>
+    <span>Points = tests×10 + review×50 + efficiency. Output first, cost second.</span>
+    <span>auto-refreshes every 60s</span>
+  </footer>
+</div>
+
+<script>
+const CONFIG_URL = "config.json";
+const BOARD_URL = "leaderboard.json";
+
+async function load() {
+  let board;
+  try {
+    const [configRes, boardRes] = await Promise.all([
+      fetch(CONFIG_URL, {cache: "no-store"}),
+      fetch(BOARD_URL, {cache: "no-store"}),
+    ]);
+    board = await boardRes.json();
+    const config = configRes.ok ? await configRes.json() : {};
+    board.repo = config.repo || "";
+    if (config.default_event) board.default_event = config.default_event;
+  } catch (e) {
+    document.getElementById("updated").textContent = "failed to load leaderboard.json";
+    return;
+  }
+  window.__board = board;
+
+  const evSel = document.getElementById("event");
+  const keep = evSel.value;
+  const names = Object.keys(board.events || {}).sort();
+  const defaultEvent = board.default_event || names[0];
+  evSel.innerHTML = names
+    .map(n => `<option value="${esc(n)}" ${n === defaultEvent ? "selected" : ""}>${esc(n)}</option>`)
+    .join("");
+  if (keep && names.includes(keep)) evSel.value = keep;
+
+  document.getElementById("repo-sub").textContent =
+    board.repo || "";
+  render();
+}
+
+function render() {
+  const board = window.__board;
+  if (!board) return;
+  const ev = document.getElementById("event").value;
+  const topn = document.getElementById("topn").value;
+  const q = document.getElementById("search").value.trim().toLowerCase();
+
+  let rows = (board.events[ev] || {}).rows || [];
+  if (q) rows = rows.filter(r =>
+    (r.attendee || "").toLowerCase().includes(q) ||
+    (r.github || "").toLowerCase().includes(q));
+  if (topn !== "all") rows = rows.slice(0, parseInt(topn, 10));
+
+  const medals = {1: "🥇", 2: "🥈", 3: "🥉"};
+  const max = Math.max(...rows.map(r => r.points || 0), 1);
+  document.getElementById("rows").innerHTML = rows.map(r => `
+    <tr>
+      <td class="rank rank-${r.rank <= 3 ? r.rank : ""}">
+        <span class="medal">${medals[r.rank] || ""}</span>${r.rank}
+      </td>
+      <td>
+        <div class="handle">${esc(r.attendee || "?")}</div>
+        <div class="gh">${r.github ? "@" + esc(r.github) : ""}</div>
+      </td>
+      <td>${r.pr_url ? `<a href="${esc(r.pr_url)}">#${r.pr}</a>` : (r.pr || "")}</td>
+      <td>
+        <div>${r.tests_passed || 0} <span class="gh">/ ${testedCount(r)}</span></div>
+        <div class="bar"><i style="width:${(r.tests_passed || 0) / testedCount(r) * 100}%"></i></div>
+      </td>
+      <td>$${(r.cost_usd || 0).toFixed(2)}</td>
+      <td class="pts">${(r.points || 0).toFixed(2)}
+        <div class="bar"><i style="width:${(r.points || 0) / max * 100}%"></i></div>
+      </td>
+    </tr>`).join("");
+
+  const total = ((board.events[ev] || {}).rows || []).length;
+  document.getElementById("empty").style.display = rows.length ? "none" : "block";
+  document.getElementById("count").textContent = total ? total + " participants" : "";
+  document.getElementById("updated").textContent =
+    "updated " + new Date(board.generated_at).toLocaleString();
+}
+
+function testedCount(r) {
+  return (r.tests_passed || 0) + (r.tests_failed || 0) || 1;
+}
+function esc(s) {
+  return String(s).replace(/[&<>"']/g,
+    c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+
+document.getElementById("event").addEventListener("change", render);
+document.getElementById("topn").addEventListener("change", render);
+document.getElementById("search").addEventListener("input", render);
+load();
+setInterval(load, 60000);
+</script>
+</body>
+</html>
