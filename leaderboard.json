@@ -1,33 +1,4 @@
 {
-  "generated_at": "2026-10-22T09:43:34.822814+00:00",
-  "events": {
-    "selftest-2026-10-22": {
-      "rows": [
-        {
-          "attendee": "testuser",
-          "github": "kunalworldwide",
-          "event": "selftest-2026-10-22",
-          "pr": 1,
-          "pr_url": "https://github.com/kunalworldwide/kimchi-workshop/pull/1",
-          "pr_title": "[submission] testuser - challenges 1-2",
-          "status": "accepted",
-          "tests_passed": 9,
-          "tests_failed": 0,
-          "review_score": 0.0,
-          "cost_usd": 0.42,
-          "cost_self_reported": true,
-          "requests": 0,
-          "models_used": [],
-          "points": 105.8,
-          "submitted_at": "2026-10-22T09:42:08.309615+00:00",
-          "scoring_config": {
-            "budget_usd": 2.0
-          },
-          "accepted_at": "2026-10-22T09:43:34.775017+00:00",
-          "rank": 1
-        }
-      ],
-      "count": 1
-    }
-  }
+  "generated_at": "2026-10-22T09:48:30.834559+00:00",
+  "events": {}
 }
