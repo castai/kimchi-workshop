@@ -1,4 +1,6 @@
 {
   "repo": "github.com/kunalworldwide/kimchi-workshop",
-  "default_event": ""
+  "repo_url": "https://github.com/kunalworldwide/kimchi-workshop",
+  "default_event": "selftest-2026-10-22",
+  "generated_at": "2026-10-22T09:43:34.866257+00:00"
 }
