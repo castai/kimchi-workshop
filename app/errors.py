@@ -11,6 +11,10 @@ def register_error_handlers(app):
     def bad_request(e):
         return jsonify({"error": "bad_request", "message": str(e)}), 400
 
+    @app.errorhandler(429)
+    def too_many(e):
+        return jsonify({"error": "rate_limited", "message": str(e)}), 429
+
     @app.errorhandler(404)
     def not_found(e):
         return jsonify({"error": "not_found", "message": str(e)}), 404

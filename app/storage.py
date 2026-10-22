@@ -2,13 +2,14 @@
 import json
 import os
 import threading
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 
 class TaskStore:
-    def __init__(self, path):
+    def __init__(self, path, stale_days=7, cache_ttl=30):
         self.path = path
-        self._lock = threading.Lock()
+        self.stale_days = stale_days
+        self._lock = threading.RLock()
         directory = os.path.dirname(path)
         if directory:
             os.makedirs(directory, exist_ok=True)
@@ -23,6 +24,59 @@ class TaskStore:
         with open(self.path, "w") as f:
             json.dump(data, f, indent=2)
 
+    def _now(self):
+        return datetime.utcnow()
+
+    def gc_stale_tasks(self):
+        """Remove tasks that have been open too long (over STALE_DAYS days).
+
+        BUG: recency is computed against (created_at, updated_at) - a task
+        created 10 days ago that the user keeps updating stays forever;
+        a task created yesterday that was updated once stays too. The
+        intended policy: age since LAST ACTIVITY (updated_at or
+        completed_at, whichever exists). Fix so an actively-updated task
+        survives and a never-touched old task is reaped.
+        """
+        with self._lock:
+            data = self._read()
+            cutoff = self._now() - timedelta(days=self.stale_days)
+            kept = []
+            for t in data["tasks"]:
+                if t["status"] != "open":
+                    kept.append(t)
+                    continue
+                if t.get("updated_at"):
+                    if _parse(t["updated_at"]) >= cutoff:
+                        kept.append(t)
+                    continue
+                if _parse(t["created_at"]) > cutoff:
+                    kept.append(t)
+            data["tasks"] = kept
+            self._write(data)
+            return len(kept)
+
+    def merge_tasks(self, incoming):
+        """Merge tasks from a sync payload (id, title, priority, status).
+
+        BUG: blindly overwrites the local task when incoming is older -
+        last-writer-wins by incoming. The intended policy: keep whichever
+        task has the later updated_at; on equal timestamps, keep local.
+        """
+        with self._lock:
+            data = self._read()
+            by_id = {t["id"]: t for t in data["tasks"]}
+            for inc in incoming:
+                tid = inc["id"]
+                if tid in by_id:
+                    local = by_id[tid]
+                    if _parse(inc.get("updated_at", "")) >= _parse(local.get("updated_at", "")):
+                        local.update(inc)
+                else:
+                    by_id[tid] = dict(inc)
+            data["tasks"] = list(by_id.values())
+            self._write(data)
+            return data["tasks"]
+
     def list_tasks(self, status=None):
         data = self._read()
         tasks = data["tasks"]
@@ -30,7 +84,8 @@ class TaskStore:
             tasks = [t for t in tasks if t.get("status") == status]
         return tasks
 
-    def create_task(self, title, priority=1):
+    def create_task(self, title, priority=1, now=None):
+        now = now or self._now()
         with self._lock:
             data = self._read()
             task = {
@@ -38,7 +93,8 @@ class TaskStore:
                 "title": title,
                 "priority": priority,
                 "status": "open",
-                "created_at": datetime.now(timezone.utc).isoformat(),
+                "created_at": _iso(now),
+                "updated_at": _iso(now),
             }
             data["next_id"] += 1
             data["tasks"].append(task)
@@ -51,13 +107,25 @@ class TaskStore:
                 return t
         return None
 
-    def complete_task(self, task_id):
+    def update_task(self, task_id, fields, now=None):
+        with self._lock:
+            data = self._read()
+            for t in data["tasks"]:
+                if t["id"] == task_id:
+                    t.update(fields)
+                    self._write(data)
+                    return t
+        return None
+
+    def complete_task(self, task_id, now=None):
+        now = now or self._now()
         with self._lock:
             data = self._read()
             for t in data["tasks"]:
                 if t["id"] == task_id:
                     t["status"] = "completed"
-                    t["completed_at"] = datetime.now(timezone.utc).isoformat()
+                    t["completed_at"] = _iso(now)
+                    t["updated_at"] = _iso(now)
                     self._write(data)
                     return t
         return None
@@ -72,3 +140,11 @@ class TaskStore:
                     self._write(data)
                     return True
         return False
+
+
+def _iso(dt):
+    return dt.isoformat()
+
+
+def _parse(s):
+    return datetime.fromisoformat(s) if s else datetime.min
