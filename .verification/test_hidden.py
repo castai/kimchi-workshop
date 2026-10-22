@@ -104,7 +104,8 @@ def test_v3_pagination_custom(client):
 
 def test_v3_pagination_cap(client):
     for i in range(150):
-        client.post("/tasks", json={"title": f"t{i}"})
+        r = client.post("/tasks", json={"title": f"t{i}"})
+        assert r.status_code == 201
     body = client.get("/tasks").get_json()
     assert body["limit"] == 20
     assert len(body["tasks"]) == 20
@@ -218,7 +219,7 @@ def test_v6_gc_keeps_active_olds(store_path):
     _seed_store(store_path, tasks)
     s = TaskStore(store_path, stale_days=7)
     kept = s.gc_stale_tasks()
-    titles = [t["title"] for t in s.list_tasks()]
+    titles = [t["title"] for t in s.list_tasks(limit=10**9)[0]]
     assert "active old" in titles
     assert "stale old" not in titles
 
@@ -235,7 +236,7 @@ def test_v6_gc_never_touches_completed(store_path):
     _seed_store(store_path, tasks)
     s = TaskStore(store_path, stale_days=7)
     s.gc_stale_tasks()
-    assert [t["title"] for t in s.list_tasks()] == ["done long ago"]
+    assert [t["title"] for t in s.list_tasks(limit=10**9)[0]] == ["done long ago"]
 
 
 def test_v6_gc_boundary(store_path):
@@ -251,7 +252,7 @@ def test_v6_gc_boundary(store_path):
     _seed_store(store_path, tasks)
     s = TaskStore(store_path, stale_days=7)
     s.gc_stale_tasks()
-    titles = [t["title"] for t in s.list_tasks()]
+    titles = [t["title"] for t in s.list_tasks(limit=10**9)[0]]
     assert titles == ["fresh"]
 
 

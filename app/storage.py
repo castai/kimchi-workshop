@@ -25,17 +25,13 @@ class TaskStore:
             json.dump(data, f, indent=2)
 
     def _now(self):
-        return datetime.utcnow()
+        return datetime.now(timezone.utc)
 
     def gc_stale_tasks(self):
-        """Remove tasks that have been open too long (over STALE_DAYS days).
+        """Remove open tasks with no activity for over STALE_DAYS days.
 
-        BUG: recency is computed against (created_at, updated_at) - a task
-        created 10 days ago that the user keeps updating stays forever;
-        a task created yesterday that was updated once stays too. The
-        intended policy: age since LAST ACTIVITY (updated_at or
-        completed_at, whichever exists). Fix so an actively-updated task
-        survives and a never-touched old task is reaped.
+        Policy: recency is time since LAST ACTIVITY - the newest of
+        updated_at / completed_at when present, else created_at.
         """
         with self._lock:
             data = self._read()
@@ -45,22 +41,19 @@ class TaskStore:
                 if t["status"] != "open":
                     kept.append(t)
                     continue
-                if t.get("updated_at"):
-                    if _parse(t["updated_at"]) >= cutoff:
-                        kept.append(t)
-                    continue
-                if _parse(t["created_at"]) > cutoff:
+                last_activity = t.get("updated_at") or t.get("completed_at") \
+                    or t.get("created_at")
+                if _parse(last_activity) > cutoff:
                     kept.append(t)
             data["tasks"] = kept
             self._write(data)
             return len(kept)
 
     def merge_tasks(self, incoming):
-        """Merge tasks from a sync payload (id, title, priority, status).
+        """Merge tasks from a sync payload.
 
-        BUG: blindly overwrites the local task when incoming is older -
-        last-writer-wins by incoming. The intended policy: keep whichever
-        task has the later updated_at; on equal timestamps, keep local.
+        Policy: keep whichever side has the later updated_at; on equal
+        timestamps, keep local. Unknown incoming ids are added.
         """
         with self._lock:
             data = self._read()
@@ -69,20 +62,24 @@ class TaskStore:
                 tid = inc["id"]
                 if tid in by_id:
                     local = by_id[tid]
-                    if _parse(inc.get("updated_at", "")) >= _parse(local.get("updated_at", "")):
-                        local.update(inc)
+                    if _parse(inc.get("updated_at", "")) > _parse(local.get("updated_at", "")):
+                        merged = dict(local)
+                        merged.update(inc)
+                        by_id[tid] = merged
                 else:
                     by_id[tid] = dict(inc)
             data["tasks"] = list(by_id.values())
             self._write(data)
             return data["tasks"]
 
-    def list_tasks(self, status=None):
+    def list_tasks(self, status=None, limit=20, offset=0):
         data = self._read()
         tasks = data["tasks"]
         if status is not None:
             tasks = [t for t in tasks if t.get("status") == status]
-        return tasks
+        tasks.sort(key=lambda t: t["id"])
+        total = len(tasks)
+        return tasks[offset:offset + limit], total
 
     def create_task(self, title, priority=1, now=None):
         now = now or self._now()
@@ -108,11 +105,13 @@ class TaskStore:
         return None
 
     def update_task(self, task_id, fields, now=None):
+        now = now or self._now()
         with self._lock:
             data = self._read()
             for t in data["tasks"]:
                 if t["id"] == task_id:
                     t.update(fields)
+                    t["updated_at"] = _iso(now)
                     self._write(data)
                     return t
         return None
@@ -143,8 +142,15 @@ class TaskStore:
 
 
 def _iso(dt):
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
     return dt.isoformat()
 
 
 def _parse(s):
-    return datetime.fromisoformat(s) if s else datetime.min
+    if not s:
+        return datetime.min.replace(tzinfo=timezone.utc)
+    dt = datetime.fromisoformat(s)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt
