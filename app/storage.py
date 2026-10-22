@@ -58,6 +58,7 @@ class TaskStore:
                 if t["id"] == task_id:
                     t["status"] = "completed"
                     t["completed_at"] = datetime.now(timezone.utc).isoformat()
+                    self._write(data)
                     return t
         return None
 
