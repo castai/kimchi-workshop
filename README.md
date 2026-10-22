@@ -39,6 +39,10 @@ workshop tag won't attribute without it. Then tag yourself:
 
 Or just run `/workshop-setup-check` and the agent walks you through it.
 
+Note: if you authenticate with `KIMCHI_API_KEY` as an env var, the var must
+be set every launch (add it to your shell profile), or run `kimchi setup`
+once to persist login.
+
 ## The challenges
 
 Read `workshop/CHALLENGES.md`. Short version:

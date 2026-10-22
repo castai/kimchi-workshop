@@ -25,6 +25,10 @@ run event #10 from this file as cheaply as event #1.
 
 - Projector shows the instructor terminal, not slides. 5-minute welcome
   is the only slide content that exists.
+- **Terminal window size matters**: the first-run trust prompt's option
+  rows truncate in small windows. Tell attendees to open a full-size
+  terminal (80x24 minimum at normal font) before launching `kimchi`, and
+  demo the trust prompt on the projector before anyone launches.
 - TA ratio 1:10-15. Module 0 is where they earn it.
 - One presenter drives; one watches the stuck queue (form replies / hands).
 - Print the one-pager: quick start, challenge list, tag command.
@@ -60,6 +64,9 @@ Timeboxes are hard. If the room is slow, cut module 4 (MCP), never module 7
 | Symptom | Fix |
 | --- | --- |
 | Login/captcha wall at the venue | They skipped setup email 1. TA side-channel: pair them with a neighbor for module 1, fix account after |
+| "No models available" on second launch | Env-key setups don't persist; run `kimchi setup` or `/login` once, or export KIMCHI_API_KEY in the shell profile |
+| First-run picker traps them in Ferment | Typing a goal at the picker enters Ferment scoping; Esc/arrow to "Just chat and code" for plain chat (or embrace it - it's the module 5 demo) |
+| Trust-prompt options look truncated | Terminal window too small; resize and relaunch, or projector-walk the choice first |
 | `.kimchi` trust prompt surprise | Expected - approve it. Project tags need trust; covered in module 0 |
 | Community tier queue slowdown | Have event-issued service keys ready (Budget Course needs them anyway) |
 | Ferment runs long past timebox | `/ferment pause` + teleport it; it finishes overnight (that's the Pickle) |
