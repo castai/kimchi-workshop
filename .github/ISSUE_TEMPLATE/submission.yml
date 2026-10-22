@@ -1,0 +1,37 @@
+name: Workshop submission
+description: Submit your run for the leaderboard
+title: "[submission] <your-handle>"
+labels: ["submission"]
+body:
+  - type: input
+    id: handle
+    attributes:
+      label: Attendee handle
+      description: The same handle you used for /tags add attendee:...
+      placeholder: octocat
+    validations:
+      required: true
+  - type: input
+    id: pr
+    attributes:
+      label: Pull request URL
+      description: Your best PR (challenges 4-6). Code Review scores this.
+      placeholder: https://github.com/.../pull/12
+    validations:
+      required: false
+  - type: input
+    id: cost
+    attributes:
+      label: Token spend (USD)
+      description: From your usage export - or leave blank and attach the CSV
+      placeholder: "0.84"
+    validations:
+      required: false
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      description: Which challenges you finished, what surprised you, what broke
+      placeholder: Red-to-Green in 6 minutes, OAuth via ferment took 40 min and two phase re-plans...
+    validations:
+      required: false
