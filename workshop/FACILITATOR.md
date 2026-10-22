@@ -120,14 +120,29 @@ work. Cost per task, not per token.
 
 ## Scoring at the end
 
-Attendees submit (issue form or `scripts/score.py`). You merge:
+Submissions arrive as PRs titled `[submission] <handle> - ...` with the
+template block filled in (attendee / event / cost_usd). The flow:
+
+1. **CI scores every submission PR automatically** the moment it opens
+   (tests + points math, no secrets involved, safe from forks). The score
+   appears as a check plus a summary on the PR.
+2. **You review and evaluate.** Read the diff, look at the checks, run
+   anything you want locally.
+3. **Add the `accepted` label** - that is the whole evaluation action.
+   The leaderboard workflow records the submission, rebuilds
+   `leaderboard.json`, comments the score and rank on the PR, and
+   redeploys the live board to GitHub Pages.
+4. **Project the board** at the wrap-up: event dropdown (multiple
+   workshops / a whole series in one repo), top-10/20/50 selector, and
+   participant search. It auto-refreshes every 60 seconds, so the room
+   watches ranks move as you accept.
+
+Create the `accepted` label once per repo (Settings → Labels or
+`gh label create accepted --color 0E8A16`).
 
 ```bash
 python scripts/leaderboard.py --submissions submissions/ --out leaderboard.json
 ```
-
-Project it. Award prizes: credits, swag. The real prize line that lands:
-"everything you built today is in your fork - take it home."
 
 ## After the event
 

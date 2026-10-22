@@ -435,21 +435,37 @@ of the work).
 
 ## Submitting your run
 
-Two ways, both count:
+**The way to submit is a pull request.** Fork the repo, push your work to
+your fork, and open a PR back to this repo titled
+`[submission] <handle> - what you built`. The PR template gives you a
+block to fill in:
 
-1. **The issue form** - open a submission issue in this repo; fill in
-   handle, PR link, spend, notes.
-2. **The scorer** - export your usage CSV from the console (Usage page,
-   filter by your attendee tag, export), then:
+```
+attendee: <your-handle>
+event: <event-code>
+cost_usd: <your spend, e.g. 0.84>
+review_score:
+```
 
-   ```bash
-   python scripts/score.py --attendee <handle> \
-       --usage export.csv \
-       --pr https://github.com/<your-fork>/kimchi-workshop/pull/N
-   ```
+- `attendee` must match the handle you used for `/tags add attendee:...`
+- `event` is the workshop code your facilitator announced (e.g.
+  `berlin-2026-10-22`)
+- `cost_usd` comes from your console export (Usage page, filtered by your
+  attendee tag). Running the offline Ollama track? Put `0`.
 
-   This writes `submissions/<handle>.json`. The organizer merges all
-   submissions into the final leaderboard.
+**Then what happens:**
+
+1. CI scores your PR automatically the moment you open it - tests run,
+   points are computed, and the score shows as a check on the PR.
+2. A facilitator reviews your code and the checks.
+3. When they add the **`accepted`** label, the leaderboard updates within
+   a minute and you get a comment on your PR with your points and rank.
+4. The live board (linked from the README) has an event dropdown, a
+   top-10/20/50 selector, and search - your facilitator projects it at
+   the wrap-up.
+
+The manual fallback (submission issue + `scripts/score.py`) still works
+if you cannot open a PR for some reason.
 
 Scoring, in full detail, is in `workshop/SCORING.md`. The shape:
 

@@ -1,0 +1,65 @@
+name: Score submission PR
+
+# Runs on every PR (including from forks - the sandbox has no secrets,
+# so this is safe) and on direct pushes for iteration.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  score:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install -r requirements.txt
+
+      - name: Score the submission
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          python scripts/score_pr.py \
+            --pr "${{ github.event.pull_request.number }}" \
+            --author "${{ github.event.pull_request.user.login }}" \
+            --url "${{ github.event.pull_request.html_url }}" \
+            --title "$PR_TITLE" \
+            --body-file <(curl -sfL -H "Authorization: Bearer ${{ github.token }}" \
+              -H "Accept: application/vnd.github+json" \
+              "${{ github.event.pull_request.url }}") \
+            --out score.json --summary summary.md || true
+          # fall back: write the body from the event payload if curl failed
+          if [ ! -f score.json ]; then
+            cat > body.txt <<'EOF'
+          ${{ github.event.pull_request.body }}
+          EOF
+            python scripts/score_pr.py \
+              --pr "${{ github.event.pull_request.number }}" \
+              --author "${{ github.event.pull_request.user.login }}" \
+              --url "${{ github.event.pull_request.html_url }}" \
+              --title "$PR_TITLE" \
+              --body-file body.txt \
+              --out score.json --summary summary.md
+          fi
+
+      - name: Upload score artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: submission-score
+          path: |
+            score.json
+            summary.md
+          if-no-found-files: ignore
+
+      - name: Show summary
+        if: always()
+        run: cat summary.md || echo "no summary produced"

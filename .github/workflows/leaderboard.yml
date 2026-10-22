@@ -1,0 +1,124 @@
+name: Update leaderboard
+
+# Fires when a facilitator labels a PR "accepted" (the human evaluation
+# gate). Fetches the score artifact from that PR's latest scoring run,
+# stores it under records/, rebuilds leaderboard.json, and deploys the
+# UI to GitHub Pages.
+on:
+  pull_request_target:
+    types: [labeled]
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: read
+
+jobs:
+  leaderboard:
+    if: github.event.label.name == 'accepted'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Get latest scoring run for PR ${{ github.event.pull_request.number }}
+        id: runs
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const runs = await github.rest.actions.listWorkflowRuns({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: "score-pr.yml",
+              event: "pull_request",
+              per_page: 50,
+            });
+            const prNumber = context.payload.pull_request.number;
+            const run = runs.data.workflow_runs.find(
+              (r) => r.pull_requests && r.pull_requests.some((p) => p.number === prNumber)
+            );
+            if (!run) { core.setFailed("No scoring run found for PR " + prNumber); return; }
+            core.setOutput("run_id", run.id);
+            core.setOutput("head_sha", run.head_sha);
+
+      - name: Download score artifact
+        uses: dawidd6/action-download-artifact@v6
+        with:
+          workflow: score-pr.yml
+          run_id: ${{ steps.runs.outputs.run_id }}
+          name: submission-score
+          path: download/
+
+      - name: Record the accepted submission
+        run: |
+          mkdir -p records
+          python - <<'EOF'
+          import json, sys
+          row = json.load(open("download/score.json"))
+          row["status"] = "accepted"
+          row["accepted_at"] = __import__("datetime").datetime.now(
+              __import__("datetime").timezone.utc).isoformat()
+          name = "%s-%s.json" % (row.get("event", "default"),
+                                 row.get("attendee", "unknown"))
+          with open("records/" + name, "w") as f:
+              json.dump(row, f, indent=2)
+          print("recorded", name)
+          EOF
+
+      - name: Rebuild leaderboard
+        run: python scripts/aggregate.py --records records/ --out leaderboard.json
+
+      - name: Build UI config and stage docs
+        run: |
+          python scripts/build_ui_config.py --repo "${{ github.repository }}" \
+            --board leaderboard.json --out docs/config.json
+          cp leaderboard.json docs/leaderboard.json
+          # index.html ships in docs/ already; config + board are generated
+
+      - name: Comment the score on the PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require("fs");
+            const row = JSON.parse(fs.readFileSync("download/score.json", "utf8"));
+            const board = JSON.parse(fs.readFileSync("leaderboard.json", "utf8"));
+            const event = row.event || "default";
+            const ranked = (board.events[event] && board.events[event].rows) || [];
+            const me = ranked.find((r) => r.attendee === row.attendee);
+            const rank = me ? me.rank : "?";
+            const body = [
+              "### 🏆 Submission accepted",
+              "",
+              "| | |",
+              "| --- | --- |",
+              "| Points | **" + row.points.toFixed(2) + "** |",
+              "| Tests | " + row.tests_passed + " passed, " + row.tests_failed + " failed |",
+              "| Cost | $" + (row.cost_usd || 0).toFixed(2) + " |",
+              "| Rank in **" + event + "** | #" + rank + " of " + ranked.length + " |",
+              "",
+              "See the live leaderboard: " + context.payload.repository.html_url + "#leaderboard",
+            ].join("\n");
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.number,
+              body,
+            });
+
+      - name: Commit records and leaderboard
+        run: |
+          git config user.name "workshop-bot"
+          git config user.email "workshop-bot@users.noreply.github.com"
+          git add records/ leaderboard.json
+          git commit -m "Leaderboard: accept PR #${{ github.event.pull_request.number }} (${{ github.event.pull_request.user.login }})" || echo "nothing to commit"
+          git push
+
+      - name: Deploy UI to Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./docs
+          publish_branch: gh-pages

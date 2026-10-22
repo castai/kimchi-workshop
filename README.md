@@ -126,8 +126,18 @@ points     = output + efficiency
 - The leaderboard is the console filtered by your tags - cost, requests,
   models, latency, all live.
 
-Submit: open a submission issue, or
-`python scripts/score.py --attendee <handle> --usage export.csv --pr <URL>`.
+### 📊 The live board
+
+Every accepted submission lands on the workshop leaderboard at
+**`https://<owner>.github.io/kimchi-workshop/`** - event dropdown (run a
+whole series off one repo), top-10/20/50 selector, participant search,
+60-second auto-refresh. Facilitators: the `accepted` label on a PR is the
+whole evaluation action.
+
+**Submitting is a pull request.** Fork, solve, open a PR titled
+`[submission] <handle> - ...` with the template block filled in. CI scores
+it automatically; a facilitator adds the `accepted` label; the live
+leaderboard updates. Manual fallback: `scripts/score.py`.
 
 ---
 
