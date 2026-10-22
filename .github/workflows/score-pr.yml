@@ -28,11 +28,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           # fetch the private suite from the verification-private branch
-          curl -sfL -H "Authorization: Bearer $GH_TOKEN"             "https://api.github.com/repos/${{ github.repository }}/contents/.verification/test_hidden.py?ref=verification-private"             | python -c "import json,sys,base64; sys.stdout.buffer.write(base64.b64decode(json.load(sys.stdin)['content']))"             > .verification/test_hidden.py
           mkdir -p .verification
-          mv .verification/test_hidden.py .verification/test_hidden.py 2>/dev/null || true
-          python -m pytest .verification/ -q --no-header --tb=no -p no:cacheprovider || true
-          python -m pytest .verification/ -q --no-header --tb=no -p no:cacheprovider 2>&1 | tail -1 > verification_result.txt || true
+          curl -sfL -H "Authorization: Bearer $GH_TOKEN" \
+            "https://api.github.com/repos/${{ github.repository }}/contents/.verification/test_hidden.py?ref=verification-private" \
+            | python -c "import json,sys,base64; sys.stdout.buffer.write(base64.b64decode(json.load(sys.stdin)['content']))" \
+            > .verification/test_hidden.py
+          echo "--- hidden suite result ---"
+          python -m pytest .verification/ -q --no-header --tb=line -p no:cacheprovider || true
 
       - name: Score the submission
         env:
