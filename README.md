@@ -55,7 +55,7 @@ export KIMCHI_API_KEY=<key>    # add to ~/.bashrc or ~/.zshrc - env keys don't p
 **3. Clone and set up**
 
 ```bash
-git clone https://github.com/kunalworldwide/kimchi-workshop.git
+git clone https://github.com/kunalcast/kimchi-workshop.git
 cd kimchi-workshop
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
