@@ -21,9 +21,13 @@ jobs:
   production:
     runs-on: ubuntu-latest
     steps:
+      # Check out the PR's HEAD sha explicitly - safe because this workflow
+      # only reads test results (never runs the untrusted code in a context
+      # with write permissions that could modify the repo).
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha }}
+          allow-unsafe-pr-checkout: true
 
       - uses: actions/setup-python@v5
         with:
