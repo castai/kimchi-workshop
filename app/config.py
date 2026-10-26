@@ -1,14 +1,30 @@
 """Ferment Board - workshop configuration.
 
-All knobs are environment-overridable so tests can tune them at runtime.
+Everything on the config surface - including the secret and the debug
+flag - is resolved from the process environment at call time, so tests
+and deploys can tune behavior without code changes or import-order
+sensitivity.
 """
 import os
 
-# Runtime secret. Must come from the process environment; the fallback
-# below is a clearly-marked development value, never a real credential.
-SECRET_KEY = os.environ.get("SECRET_KEY", "dev-insecure-secret-key")
 
-DEBUG = True
+def __getattr__(name):
+    """Resolve module attributes dynamically from the environment.
+
+    SECRET_KEY must come from the process environment; the fallback is a
+    clearly-marked development value, never a real credential. DEBUG is
+    off unless explicitly enabled via the environment.
+    """
+    if name == "SECRET_KEY":
+        return os.environ.get("SECRET_KEY", "dev-insecure-secret-key")
+    if name == "DEBUG":
+        return os.environ.get("DEBUG", "0").lower() in ("1", "true", "yes", "on")
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+# Pagination surface: the list endpoint never returns the whole table.
+DEFAULT_PAGE_LIMIT = 50
+MAX_PAGE_LIMIT = 100
 
 
 def data_file():
@@ -23,7 +39,7 @@ def stale_days():
 
 def rate_limit():
     """Requests allowed per rate window. Override with RATE_LIMIT."""
-    return int(os.environ.get("RATE_LIMIT", "30"))
+    return int(os.environ.get("RATE_LIMIT", "200"))
 
 
 def rate_window():
