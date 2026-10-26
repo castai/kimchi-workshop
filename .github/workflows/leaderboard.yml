@@ -76,6 +76,8 @@ jobs:
           with open("records/" + name, "w") as f:
               json.dump(row, f, indent=2)
           print("recorded", name)
+          with open("record_for_inbox.json", "w") as f:
+              json.dump(row, f)
           EOF
 
       - name: Rebuild leaderboard
@@ -118,6 +120,62 @@ jobs:
               body,
             });
 
+      - name: Publish acceptance email to the participant's site inbox
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ATTENDEE: ${{ github.event.pull_request.user.login }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: |
+          set -e
+          python3 - <<'EOF'
+          import json
+          row = json.load(open("record_for_inbox.json"))
+          event = row.get("event", "default")
+          board = json.load(open("leaderboard.json"))
+          ranked = (board.get("events", {}).get(event) or {}).get("rows") or []
+          me = next((r for r in ranked if r.get("attendee") == row.get("attendee")), None)
+          rank = me.get("rank") if me else "?"
+          total = len(ranked)
+          body = (
+              "Accepted. The facilitator has reviewed the PR, the suite, and the production "
+              "story. Your submission is on the board.\n\n"
+              "Points: " + str(row.get("points", 0)) + "\n"
+              "Rank in " + str(event) + ": #" + str(rank) + " of " + str(total) + "\n"
+              "Visible checks: " + str(row.get("tests_passed", 0)) + " passed\n"
+              "Your spend: $" + "%.2f" % float(row.get("cost_usd", 0) or 0) + "\n\n"
+              "The PR stays open in the queue for audit, but the leaderboard row is permanent. "
+              "If you want to see the production story that got you here, check your inbox — "
+              "Marcus sent it already.\n\n"
+              "Now go help the next person. The company is in good hands.\n\n"
+              "— Priya\n"
+          )
+          with open("acceptance_body.txt", "w") as f:
+              f.write(body)
+          print("wrote acceptance_body.txt")
+          EOF
+
+          git clone --branch gh-pages --depth 1 \
+            "https://x-access-token:${GITHUB_TOKEN}@github.com/castai/kimchi-workshop.git" site
+          cd site
+          git config user.name "kimchi-workshop-bot"
+          git config user.email "bot@users.noreply.github.com"
+          python3 append_personal_mail.py \
+            --site-dir . \
+            --handle "$ATTENDEE" \
+            --id "accepted-pr-${PR_NUMBER}" \
+            --from-name "Priya Nakamura-Singh" \
+            --from-role "VP Engineering" \
+            --from-bg "#b3261e" \
+            --subject "Submission accepted — you ranked" \
+            --category score \
+            --body-file ../acceptance_body.txt \
+            --pr-url "$PR_URL"
+          git add "personal/${ATTENDEE}.json"
+          git commit -m "Inbox: acceptance for @${ATTENDEE} (PR #${PR_NUMBER})" || echo "nothing to commit"
+          git push origin gh-pages
+
       - name: Commit records and leaderboard
         run: |
           git config user.name "workshop-bot"
@@ -132,3 +190,7 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./docs
           publish_branch: gh-pages
+          # keep_files: the site also carries briefings/, personal/,
+          # append_personal_mail.py, and other assets written directly
+          # to gh-pages by other workflows. Never wipe what we do not own.
+          keep_files: true
