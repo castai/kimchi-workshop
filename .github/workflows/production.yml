@@ -177,20 +177,26 @@ jobs:
           set -e
           PR_BODY=$(gh pr view "$PR_NUMBER" --repo "${{ github.repository }}" --json body --jq '.body')
 
-          # Re-run visible suite inline so the auto-review decision is self-contained
-          REPORT=/tmp/visible.json
-          set +e
-          python3 -m pytest tests/ --tb=no -q --json-report --json-report-file="$REPORT" >/dev/null 2>&1
-          set -e
-          if [ -f "$REPORT" ]; then
-            V_PASS=$(python3 -c "import json;d=json.load(open('$REPORT'));print(d['summary']['passed'])" 2>/dev/null || echo 0)
-            V_TOTAL=$(python3 -c "import json;d=json.load(open('$REPORT'));print(d['summary']['total'])" 2>/dev/null || echo 9)
-          else
-            V_PASS=0; V_TOTAL=9
-          fi
+          # Pull the latest visible suite score from the score-pr workflow's
+          # most recent completed run for this PR. Don't rerun pytest inline
+          # (the run here didn't install pinned requirements).
+          VISIBLE_TOTAL=9
+          V_PASS=0
+          for wf_name in "Score submission PR" "Score the pr"; do
+            RUN_ID=$(gh run list --repo "${{ github.repository }}" --workflow "$wf_name" --branch "$HEAD_BRANCH" --event pull_request --limit 1 --json databaseId --jq '.[0].databaseId' 2>/dev/null || echo "")
+            [ -z "$RUN_ID" ] && continue
+            mkdir -p /tmp/visible_artifacts
+            if gh run download "$RUN_ID" --repo "${{ github.repository }}" --name submission-score -D /tmp/visible_artifacts 2>/dev/null; then
+              if [ -f /tmp/visible_artifacts/submission-score.json ]; then
+                V_PASS=$(python3 -c "import json;d=json.load(open('/tmp/visible_artifacts/submission-score.json'));print(d.get('passed',0))")
+                VISIBLE_TOTAL=$(python3 -c "import json;d=json.load(open('/tmp/visible_artifacts/submission-score.json'));print(d.get('total',9))")
+                break
+              fi
+            fi
+          done
 
           PYBIN=answers/.verification/auto_review.py
-          V_PASS="$V_PASS" V_TOTAL="$V_TOTAL" PR_BODY="$PR_BODY" python3 "$PYBIN"
+          V_PASS="$V_PASS" V_TOTAL="$VISIBLE_TOTAL" PR_BODY="$PR_BODY" python3 "$PYBIN"
 
       - name: Act on auto-review verdict
         if: always()
