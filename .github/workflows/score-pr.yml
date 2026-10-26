@@ -21,7 +21,7 @@ jobs:
 
       - run: pip install -r requirements.txt
 
-      - name: Score the submission
+      - name: Score the submission (visible suite)
         env:
           PR_TITLE: ${{ github.event.pull_request.title }}
           PR_BODY: ${{ github.event.pull_request.body }}
