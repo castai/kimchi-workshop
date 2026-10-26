@@ -16,37 +16,37 @@ def __getattr__(name):
     off unless explicitly enabled via the environment.
     """
     if name == "SECRET_KEY":
-        return os.environ.get("SECRET_KEY", "dev-insecure-secret-key")
+        return os.getenv("SECRET_KEY", "dev-insecure-secret-key")
     if name == "DEBUG":
-        return os.environ.get("DEBUG", "0").lower() in ("1", "true", "yes", "on")
+        return os.getenv("DEBUG", "0").lower() in ("1", "true", "yes", "on")
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 # Pagination surface: the list endpoint never returns the whole table.
-DEFAULT_PAGE_LIMIT = 50
-MAX_PAGE_LIMIT = 100
+DEFAULT_PAGE_LIMIT = 20
+MAX_PAGE_LIMIT = 20
 
 
 def data_file():
     """Storage location for tasks. Override with TASKS_FILE in tests."""
-    return os.environ.get("TASKS_FILE", "data/tasks.json")
+    return os.getenv("TASKS_FILE", "data/tasks.json")
 
 
 def stale_days():
     """Days of inactivity before GC reaps a task. Override with STALE_DAYS."""
-    return int(os.environ.get("STALE_DAYS", "7"))
+    return int(os.getenv("STALE_DAYS", "7"))
 
 
 def rate_limit():
     """Requests allowed per rate window. Override with RATE_LIMIT."""
-    return int(os.environ.get("RATE_LIMIT", "200"))
+    return int(os.getenv("RATE_LIMIT", "200"))
 
 
 def rate_window():
     """Rate limiter window length in seconds. Override with RATE_WINDOW."""
-    return float(os.environ.get("RATE_WINDOW", "60"))
+    return float(os.getenv("RATE_WINDOW", "60"))
 
 
 def cache_ttl():
     """Task list cache TTL in seconds. Override with CACHE_TTL."""
-    return float(os.environ.get("CACHE_TTL", "30"))
+    return float(os.getenv("CACHE_TTL", "30"))

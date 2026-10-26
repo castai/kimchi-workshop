@@ -97,7 +97,7 @@ def create_app():
         """Full CSV export; always reflects the current store (never cached)."""
         buffer = io.StringIO()
         writer = csv.writer(buffer)
-        columns = ("id", "title", "priority", "status",
+        columns = ("id", "title", "status",
                    "created_at", "completed_at", "updated_at")
         writer.writerow(columns)
         for task in store.list_tasks():
