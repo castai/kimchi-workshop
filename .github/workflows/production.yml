@@ -14,7 +14,7 @@ on:
     types: [opened, synchronize, reopened]
 
 permissions:
-  contents: read
+  contents: write
   pull-requests: write
 
 jobs:
@@ -84,6 +84,38 @@ jobs:
               issue_number: context.issue.number,
               body,
             });
+
+      - name: Publish production log to the participant's site inbox
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          git clone --branch gh-pages --depth 1 \
+            "https://x-access-token:${GITHUB_TOKEN}@github.com/castai/kimchi-workshop.git" site
+          cd site
+          git config user.name "kimchi-workshop-bot"
+          git config user.email "bot@users.noreply.github.com"
+          BODY_FILE="../prod_log.md"
+          if [ ! -s "$BODY_FILE" ]; then
+            printf 'The production run did not produce a report. The facilitator has been notified.\n' > "$BODY_FILE"
+          fi
+          # append_personal_mail.py lives on the gh-pages branch itself
+          test -f append_personal_mail.py
+          python3 append_personal_mail.py \
+            --site-dir . \
+            --handle "${{ github.event.pull_request.user.login }}" \
+            --id "prod-log-pr-${{ github.event.pull_request.number }}" \
+            --from-name "Marcus Okafor" \
+            --from-role "Senior SRE, Service Owner" \
+            --from-bg "#0b5394" \
+            --subject "Production report for PR #${{ github.event.pull_request.number }} — the office has opinions" \
+            --category production \
+            --body-file "$BODY_FILE" \
+            --pr-url "${{ github.event.pull_request.html_url }}"
+          git add "personal/${{ github.event.pull_request.user.login }}.json"
+          git commit -m "Inbox: production report for @${{ github.event.pull_request.user.login }} (PR #${{ github.event.pull_request.number }})" || echo "nothing to commit"
+          git push origin gh-pages
 
       - name: Upload production score
         uses: actions/upload-artifact@v4
