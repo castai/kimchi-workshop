@@ -182,6 +182,19 @@
       "category": "production",
       "body": "Hey,\n\nRough one. I'm not going to sugarcoat it, the deploy went sideways and we're all feeling the sting. But let's talk about what actually happened.\n\nThe traffic shaping stage failed because the route never passes the store filters through, so /tasks returned the entire table. That's why the response body was 40MB. Garbage collection failed because it reaps by creation time instead of last activity, which is why tasks people were actively editing started disappearing. And cache invalidation failed because writes don't invalidate the list cache, so deleted tasks kept showing up on refresh.\n\nOn the plus side, deployment, validation, bulk export, rate limiting, sync conflicts, and time hygiene all passed clean. That's real progress and worth acknowledging.\n\nRead the store docstrings in the api package. They define the expected behavior for filtering and reaping. If the docstrings don't match what the code does, push back on the spec before you write the fix. Also check the cache layer for where list invalidation should hook in.\n\n1. Fix the route to pass params through to the store filter.\n2. Change GC to reap by last activity, not creation time.\n3. Add list cache invalidation on write operations.\n4. Verify each fix against the docstrings before you commit.\n\nAlex\n\nWhat to do next:\n\n1. Read the failing stage names above. They are your bug list.\n2. Open the files they point at, one at a time. Compare each\n   module's docstring with the current code. The docstring is the\n   spec. Where code and docstring disagree, the docstring wins.\n3. Fix one stage, re-run the visible suite, push. Repeat.\n\nThe visible suite is the floor. It is not the entire story.\nIf visible is green but production still complains, the hidden\nsuite is naming a contract detail you missed. Read the symptom\nline. Trace the code path. Fix it.",
       "pr_url": "https://github.com/castai/kimchi-workshop/pull/17"
+    },
+    {
+      "id": "accepted-pr-17",
+      "from": {
+        "name": "Sam Carter",
+        "role": "VP Engineering",
+        "bg": "#b3261e"
+      },
+      "subject": "Submission accepted - you ranked",
+      "timestamp": "2026-10-26 15:39 UTC",
+      "category": "score",
+      "body": "Hi —\n\nAccepted. The facilitator has reviewed the PR, the suite, and the production story. Your submission is on the board.\n\n  Points: 274.5\n  Rank in bot-verify-2026-10-22: #1 of 1\n  Visible checks: 26 passed\n  Your spend: $0.55\n\nThe PR stays open in the queue for audit, but the leaderboard row is permanent. If you want to see the production story that got you here, check your inbox — Alex sent it already.\n\nNow go help the next person. The company is in good hands.\n\n— Sam",
+      "pr_url": "https://github.com/castai/kimchi-workshop/pull/17"
     }
   ]
 }
