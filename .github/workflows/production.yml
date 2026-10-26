@@ -17,6 +17,9 @@ permissions:
   contents: write
   pull-requests: write
 
+env:
+  KIMCHI_API_KEY: ${{ secrets.KIMCHI_API_KEY }}
+
 jobs:
   production:
     runs-on: ubuntu-latest
@@ -72,6 +75,15 @@ jobs:
           EOF
           cat prod_log.md
 
+      - name: Frame production log as an email via Kimchi
+        env:
+          KIMCHI_API_KEY: ${{ secrets.KIMCHI_API_KEY }}
+        continue-on-error: true
+        run: |
+          cp answers/.verification/frame_email.py .verification/frame_email.py
+          python3 .verification/frame_email.py prod_log.md prod_email_body.txt
+          cat prod_email_body.txt
+
       - name: "Gate: production score must be at least 20/26"
         run: |
           python3 - <<'EOF'
@@ -94,7 +106,9 @@ jobs:
         with:
           script: |
             const fs = require("fs");
-            const body = fs.readFileSync("prod_log.md", "utf8");
+            const bodyFile = fs.existsSync("prod_email_body.txt")
+              ? "prod_email_body.txt" : "prod_log.md";
+            const body = fs.readFileSync(bodyFile, "utf8");
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -113,7 +127,10 @@ jobs:
           cd site
           git config user.name "kimchi-workshop-bot"
           git config user.email "bot@users.noreply.github.com"
-          BODY_FILE="../prod_log.md"
+          BODY_FILE="../prod_email_body.txt"
+          if [ ! -s "$BODY_FILE" ]; then
+            BODY_FILE="../prod_log.md"
+          fi
           if [ ! -s "$BODY_FILE" ]; then
             printf 'The production run did not produce a report. The facilitator has been notified.\n' > "$BODY_FILE"
           fi
@@ -128,7 +145,7 @@ jobs:
             --from-name "Alex Rivera" \
             --from-role "Senior SRE" \
             --from-bg "#0b5394" \
-            --subject "Re: deployment — production is unhappy again" \
+            --subject "Re: deployment - production is unhappy again" \
             --category production \
             --body-file "$BODY_FILE" \
             --pr-url "${{ github.event.pull_request.html_url }}"

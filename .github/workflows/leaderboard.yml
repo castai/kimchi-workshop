@@ -174,7 +174,7 @@ jobs:
             --from-name "Sam Carter" \
             --from-role "VP Engineering" \
             --from-bg "#b3261e" \
-            --subject "Submission accepted — you ranked" \
+            --subject "Submission accepted - you ranked" \
             --category score \
             --body-file ../acceptance_body.txt \
             --pr-url "$PR_URL"
