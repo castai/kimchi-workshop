@@ -1,7 +1,8 @@
 """JSON error handlers for the API.
 
-Half-finished: written, never wired up. See whether anything calls
-register_error_handlers before you add validation elsewhere.
+The handlers below are defined but nothing calls them yet. Wire
+register_error_handlers in your app factory so the routes render
+consistent JSON errors.
 """
 from flask import jsonify
 
