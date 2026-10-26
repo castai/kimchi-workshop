@@ -1,7 +1,7 @@
-"""Tests for the task API.
+"""Contract tests for the task API.
 
-Three of these fail on the seeded repo on purpose; each failing test
-maps to one challenge in workshop/CHALLENGES.md. Fix the app, not the test.
+These describe how the service is supposed to behave (see
+PRODUCTION-INCIDENT.md). Fix the app, not the tests.
 """
 import os
 import sys
@@ -9,7 +9,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
-# --- passing baseline -------------------------------------------------------
+# --- baseline behaviour ------------------------------------------------------
 
 def test_health(client):
     resp = client.get("/health")
@@ -46,52 +46,40 @@ def test_unknown_task_404(client):
     assert client.get("/tasks/999").status_code == 404
 
 
-# --- failing: challenge 1 (The Secret Ingredient) ---------------------------
+# --- configuration contract ---------------------------------------------------
 
-def test_secret_key_is_not_hardcoded():
-    """The secret key must come from the environment, not the source file.
-
-    See workshop/CHALLENGES.md, challenge 2. Runs without the app fixtures
-    on purpose: it inspects configuration, not requests.
-    """
+def test_secret_key_comes_from_environment():
+    """Runtime configuration must not embed credentials in source."""
     from app import config
 
     assert not config.SECRET_KEY.startswith("sk-"), (
-        "SECRET_KEY is hardcoded in app/config.py. Read it from an environment "
-        "variable with a safe fallback instead."
+        "SECRET_KEY appears to be a literal credential. It should come "
+        "from the process environment, with a clearly-marked dev fallback."
     )
 
 
-# --- failing: challenge 2 (Red to Green) -------------------------------------
+# --- request validation contract ----------------------------------------------
 
-def test_create_task_rejects_missing_title(client):
-    """POST /tasks without a title must return 400, not crash with a 500.
-
-    See workshop/CHALLENGES.md, challenge 1. There is an unwired helper in
-    app/errors.py that would render a clean JSON 400 if it were registered.
-    """
+def test_create_task_requires_title(client):
+    """POST /tasks without a title is a client error, not a server crash."""
     resp = client.post("/tasks", json={})
     assert resp.status_code == 400
     body = resp.get_json()
     assert body["error"] == "bad_request"
 
 
-def test_create_task_rejects_bad_priority(client):
-    """Priority must be an integer between 1 and 5; anything else is a 400."""
+def test_create_task_validates_priority(client):
+    """Priority is an integer in the range 1-5; anything else is a 400."""
     resp = client.post("/tasks", json={"title": "x", "priority": "high"})
     assert resp.status_code == 400
     resp = client.post("/tasks", json={"title": "x", "priority": 99})
     assert resp.status_code == 400
 
 
-# --- failing: challenge 3 (Backlog level 1) ----------------------------------
+# --- query contract -------------------------------------------------------------
 
-def test_list_tasks_filters_by_status(client):
-    """GET /tasks?status=open returns only open tasks.
-
-    See workshop/CHALLENGES.md, challenge 4 / backlog level 1. The store
-    already knows how to filter; the route never asks it to.
-    """
+def test_list_tasks_status_filter(client):
+    """GET /tasks respects ?status=open|completed and returns only matches."""
     client.post("/tasks", json={"title": "one"})
     client.post("/tasks", json={"title": "two"})
     client.patch("/tasks/1/complete")

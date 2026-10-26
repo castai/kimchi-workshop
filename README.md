@@ -64,15 +64,14 @@ python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-**4. Verify the seeded state**
+**4. Verify the broken service**
 
 ```bash
 python -m pytest tests/ -q
 ```
 
-> ✅ **5 passed, 4 failed is correct.** The failures are the workshop -
-> and they are deeper than they look. The full contract is bigger than
-> the visible suite (see `workshop/CHALLENGES.md`).
+> ✅ **5 passed, 4 failed is the expected state.** The failures are the
+> incident. See [`PRODUCTION-INCIDENT.md`](PRODUCTION-INCIDENT.md).
 
 **5. Launch the agent (full-size terminal, 80x24+)**
 
@@ -93,25 +92,17 @@ Shortcut: `/workshop-setup-check` verifies all of it for you.
 
 ## 🍽️ The challenges
 
-The full ladder with rules and solutions: [`workshop/CHALLENGES.md`](workshop/CHALLENGES.md)
+The service you are about to on-call for is broken in ways that interact:
+the obvious fix in one place breaks something elsewhere. The visible test
+suite is your entry ticket; the real bar is a verification suite the
+scorer runs against your PR. Partial credit for depth, not speed.
 
-| # | Challenge | Teaches | Time |
-| --- | --- | --- | --- |
-| 1 | **Red to Green** - make the failing tests pass | Verify, don't trust; the phase footer | 10 min |
-| 2 | **The Secret Ingredient** - find the hardcoded key, fix the config | Security review; diff discipline | 15 min |
-| 3 | **Teach It a Recipe** - write your first skill | Portable SKILL.md authorship | 15 min |
-| 4 | **Backlog levels** - filter → pagination → export → OAuth | Feature shipping, one PR each | 25 min |
-| 5 | **The Budget Course** - ship under a hard cap | Spend governance as a game | 10 min |
-| 6 | **The Overnight Pickle** - teleported ferments, judged next morning | Delegation, remote execution | overnight |
+> **Start here:** [`PRODUCTION-INCIDENT.md`](PRODUCTION-INCIDENT.md) for
+> the incident context, then [`CHALLENGE.md`](CHALLENGE.md) for the rules
+> and submission path.
 
-The seeded defects, mapped:
-
-| Defect | Where | Caught by |
-| --- | --- | --- |
-| Hardcoded `SECRET_KEY` | `app/config.py` | `test_secret_key_is_not_hardcoded` |
-| Unwired error handlers | `app/errors.py` (written, never registered) | validation tests |
-| No input validation | `app/app.py` `create_task` | validation tests |
-| Ignored `?status=` param | `app/app.py` `list_tasks` | filter test |
+Facilitators: the deeper design and reference material live in
+[`workshop/CHALLENGES.md`](workshop/CHALLENGES.md).
 
 ---
 
@@ -147,18 +138,19 @@ leaderboard updates. Manual fallback: `scripts/score.py`.
 ## 🗂️ Repo layout
 
 ```
-app/               the broken task tracker (Flask)
-tests/             the specs - fix the app, not the tests
-workshop/          PARTICIPANT.md, FACILITATOR.md, CHALLENGES.md,
-                   BACKLOG.md, SCORING.md, INSTRUCTOR.md (run-of-show)
+app/                  the incident-damaged task tracker (Flask)
+tests/                the service contract - fix the app, not the tests
+CHALLENGE.md          participant brief and rules
+PRODUCTION-INCIDENT.md the incident report that explains the failures
+workshop/             participant and facilitator walkthroughs, scoring,
+                       backlog, run-of-show
 .kimchi/
-  tags.json        project + workshop tags (attribution)
-  skills/          workshop-setup-check, skill template
-scripts/           score.py, leaderboard.py, run.sh
-.github/           CI (tests + leaderboard rebuild), submission issue form
+  tags.json           project + workshop tags (attribution)
+  skills/             workshop-setup-check, skill template
+scripts/              score.py, leaderboard.py, run.sh
+.github/              CI (tests + leaderboard rebuild), submission issue form
 ```
 
-`solutions` branch: reference fixes for every challenge, all tests green.
 
 ---
 

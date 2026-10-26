@@ -1,10 +1,17 @@
 # The Challenge
 
-You are looking at a task-tracker API that somebody shipped on a Friday
-and never reviewed. It works well enough to demo and badly enough to be
-a problem. Your job: get it production-ready and submit proof.
+Yesterday the task-tracker API in this repo 500'd its way through a
+production incident. A hasty patch made it worse. The team rolled it
+back.
 
-The visible test suite is your entry ticket:
+You are the on-call engineer now. Your job: get this service to
+production-ready, and submit proof.
+
+The full context: [`PRODUCTION-INCIDENT.md`](PRODUCTION-INCIDENT.md) —
+what broke, what the service is supposed to do, and why the previous
+fix attempt failed. Read it before you touch any code.
+
+Then, your entry ticket:
 
 ```bash
 git clone https://github.com/castai/kimchi-workshop.git
