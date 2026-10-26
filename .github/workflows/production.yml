@@ -1,0 +1,82 @@
+name: Production scenario
+
+# Runs against every submission PR in parallel with the visible score.
+# The hidden suite is fetched from the private kimchi-workshop-answers
+# repo - participants never see the tests, only the production log
+# rendered from their results.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  production:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install -r requirements.txt pytest
+
+      - name: Fetch hidden suite (private answers repo)
+        env:
+          ANSWERS_PAT: ${{ secrets.ANSWERS_REPO_PAT }}
+        run: |
+          if [ -z "$ANSWERS_PAT" ]; then
+            echo "::error::ANSWERS_REPO_PAT secret is not configured on this repository."
+            echo "Ask the facilitator to add a fine-grained PAT with contents:read on"
+            echo "castai/kimchi-workshop-answers under Settings > Secrets > Actions."
+            exit 1
+          fi
+          mkdir -p .verification
+          for f in test_hidden.py format_prod_log.py; do
+            curl -sfL -H "Authorization: Bearer $ANSWERS_PAT" \
+              "https://api.github.com/repos/castai/kimchi-workshop-answers/contents/.verification/$f?ref=verification" \
+              | python -c "import json,sys,base64; sys.stdout.buffer.write(base64.b64decode(json.load(sys.stdin)['content']))" \
+              > ".verification/$f"
+          done
+
+      - name: Run production scenario
+        id: prod
+        run: |
+          set +e
+          python -m pytest .verification/test_hidden.py -q \
+            --junitxml=/tmp/prod.xml --tb=line -p no:cacheprovider
+          echo "exit=$?" >> $GITHUB_OUTPUT
+          python .verification/format_prod_log.py /tmp/prod.xml prod_log.md
+          python - <<'EOF'
+          import re
+          out = open("prod_log.md").read()
+          m = re.search(r"Production score: (\d+)/(\d+)", out)
+          if m:
+              print("passed=" + m.group(1))
+              print("total=" + m.group(2))
+          EOF
+          cat prod_log.md
+
+      - name: Post production log on the PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require("fs");
+            const body = fs.readFileSync("prod_log.md", "utf8");
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });
+
+      - name: Upload production score
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-score
+          path: prod_log.md

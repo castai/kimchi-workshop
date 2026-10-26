@@ -24,40 +24,50 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Get latest scoring run for PR ${{ github.event.pull_request.number }}
-        id: runs
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const runs = await github.rest.actions.listWorkflowRuns({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              workflow_id: "score-pr.yml",
-              event: "pull_request",
-              per_page: 50,
-            });
-            const prNumber = context.payload.pull_request.number;
-            const run = runs.data.workflow_runs.find(
-              (r) => r.pull_requests && r.pull_requests.some((p) => p.number === prNumber)
-            );
-            if (!run) { core.setFailed("No scoring run found for PR " + prNumber); return; }
-            core.setOutput("run_id", run.id);
-            core.setOutput("head_sha", run.head_sha);
-
-      - name: Download score artifact
+      - name: Download visible-suite score
         uses: dawidd6/action-download-artifact@v6
         with:
           workflow: score-pr.yml
-          run_id: ${{ steps.runs.outputs.run_id }}
           name: submission-score
           path: download/
+
+      - name: Download production score
+        uses: dawidd6/action-download-artifact@v6
+        with:
+          workflow: production.yml
+          name: production-score
+          path: download/
+          if-no-files-found: ignore
 
       - name: Record the accepted submission
         run: |
           mkdir -p records
           python - <<'EOF'
-          import json, sys
+          import json, re, os
           row = json.load(open("download/score.json"))
+          prod_passed, prod_total = 0, 0
+          prod_log = "download/prod_log.md"
+          if os.path.exists(prod_log):
+              with open(prod_log) as f:
+                  md = f.read()
+              m = re.search(r"Production score: (\d+)/(\d+)", md)
+              if m:
+                  prod_passed, prod_total = int(m.group(1)), int(m.group(2))
+          row["production_passed"] = prod_passed
+          row["production_total"] = prod_total
+          # rescale points: visible 10 each, production 5 each,
+          # review 0.5 per point, efficiency from existing logic
+          tests_points = row.get("tests_passed", 0) * 10
+          prod_points = prod_passed * 5
+          review = row.get("review_score", 0)
+          eff = 0
+          if row.get("cost_self_reported", False):
+              budget = row["scoring_config"]["budget_usd"]
+              cost = row["cost_usd"]
+              eff = (1 - min(cost, budget) / budget) * 20 if budget > 0 else 0
+              if cost > budget:
+                  eff = -(min(cost - budget, budget))
+          row["points"] = round(tests_points + prod_points + (review / 100) * 50 + eff, 2)
           row["status"] = "accepted"
           row["accepted_at"] = __import__("datetime").datetime.now(
               __import__("datetime").timezone.utc).isoformat()

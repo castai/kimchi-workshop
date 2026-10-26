@@ -4,15 +4,12 @@
 
 ```
 attendee: <your-handle>
+email: <you@example.com>
 event: <event-code>
 cost_usd: <your spend, e.g. 0.84>
-review_score:
 ```
 
-- `attendee` - the same handle you used for `/tags add attendee:...`
-- `event` - the workshop code your facilitator gave you (e.g. `berlin-2026-10-22`)
-- `cost_usd` - your total spend from the console export (Usage page, filtered by your attendee tag). If you ran the offline Ollama track, put `0`.
-- `review_score` - leave empty; filled by the Code Review add-on if installed.
+**Upload the Kimchi usage CSV** for your session: [app.kimchi.dev/usage](https://app.kimchi.dev/usage) -> filter by `attendee:<your-handle>` -> Export -> drag the file into a comment below. **Submissions without the CSV are not considered for the leaderboard.**
 
 **What I completed:** (challenges / backlog levels)
 
@@ -20,7 +17,13 @@ review_score:
 
 ---
 
-**What happens next:** CI scores this PR automatically. A facilitator reviews
-the code and the checks, then adds the `accepted` label. The leaderboard
-updates within a minute of acceptance - you'll get a comment here with your
-score and rank.
+**How scoring works:**
+
+- **Visible tests**: `pytest tests/ -q` - your entry ticket (max 9 passing)
+- **Production scenario**: a hidden suite simulates your app under real load, security probes, and recovery. Posted as a "Production Log" on this PR.
+- **Code review**: Kimchi Code Review scores the diff (0-100)
+- **Efficiency**: cost_usd vs the event budget
+- **Total** = tests + production + review + efficiency
+
+A facilitator adds the `accepted` label when everything is in.
+The leaderboard updates within a minute.
