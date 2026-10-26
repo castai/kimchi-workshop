@@ -58,9 +58,14 @@ hints.
    ```
 
 3. CI scores every PR automatically. A facilitator adds the `accepted`
-   label when it passes review.
+   label when it passes review — and then **closes the PR unmerged**.
+   Nothing merges into the seed repo, ever: your PR is a scoring
+   vessel, not a contribution. Your score, rank, and the production
+   story in your PR comments stay; the repo stays pristine for the
+   next participant.
 4. Watch the [live leaderboard](https://castai.github.io/kimchi-workshop/)
-   — event dropdown, top-N, search, 60 s refresh.
+   — event dropdown, top-N, search, 60 s refresh. The full workshop
+   briefing lives there too (Briefing tab).
 
 ## Scoring
 
