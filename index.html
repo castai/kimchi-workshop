@@ -3,12 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>🥬 Kimchi Workshop - Leaderboard</title>
+<title>🥬 Kimchi Workshop</title>
 <style>
   :root {
     --bg: #0d1117; --card: #161b22; --border: #30363d;
     --text: #e6edf3; --muted: #8b949e; --accent: #2ea043;
     --gold: #e3b341; --silver: #adbac7; --bronze: #d0a27a;
+    --warn: #d29922; --bad: #f85149;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -22,9 +23,77 @@
   h1 { font-size: 26px; font-weight: 700; letter-spacing: -0.5px; }
   h1 .kimchi { color: var(--accent); }
   .sub { color: var(--muted); font-size: 13px; }
+
+  .tabs { display: flex; gap: 4px; margin: 18px 0 0; border-bottom: 1px solid var(--border); }
+  .tab {
+    padding: 10px 18px; font-size: 14px; font-weight: 600; cursor: pointer;
+    color: var(--muted); border: 1px solid transparent; border-bottom: none;
+    border-radius: 8px 8px 0 0; background: transparent;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active {
+    color: var(--text); background: var(--card);
+    border-color: var(--border);
+    margin-bottom: -1px; padding-bottom: 11px;
+  }
+  .pane { display: none; padding-top: 22px; }
+  .pane.active { display: block; }
+
+  .hero {
+    background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+    padding: 22px 24px; margin-bottom: 18px;
+  }
+  .hero .sev {
+    display: inline-block; padding: 3px 10px; border-radius: 999px;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.6px;
+    background: rgba(248, 81, 73, 0.12); color: var(--bad);
+    border: 1px solid rgba(248, 81, 73, 0.4); margin-bottom: 12px;
+  }
+  .hero p { color: var(--muted); line-height: 1.65; font-size: 14.5px; }
+  .hero p + p { margin-top: 10px; }
+  .hero strong { color: var(--text); }
+
+  h2 { font-size: 17px; font-weight: 700; margin: 26px 0 12px; }
+  h2 .n { color: var(--muted); font-weight: 500; margin-right: 8px; }
+
+  .card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+    padding: 18px 20px; margin-bottom: 14px;
+  }
+  .card p, .card li { color: var(--muted); font-size: 14px; line-height: 1.7; }
+  .card ul, .card ol { padding-left: 20px; }
+  .card li + li { margin-top: 6px; }
+  .card strong { color: var(--text); }
+  .card code {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 5px;
+    padding: 1px 6px; font-size: 12.5px; color: var(--text);
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  }
+  pre {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+    padding: 14px 16px; margin: 12px 0 4px; overflow-x: auto;
+    font-size: 13px; line-height: 1.6; color: var(--text);
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  }
+  pre .c { color: var(--muted); }
+  .warn {
+    border-color: rgba(210, 153, 34, 0.5); background: rgba(210, 153, 34, 0.06);
+  }
+  .warn strong { color: var(--warn); }
+  .notice {
+    border-color: rgba(46, 160, 67, 0.45); background: rgba(46, 160, 67, 0.06);
+  }
+  .notice strong { color: var(--accent); }
+  .kbd-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+  .step-pill {
+    padding: 4px 12px; border: 1px solid var(--border); border-radius: 999px;
+    font-size: 12px; color: var(--muted);
+  }
+  .step-pill b { color: var(--text); }
+
   .controls {
     display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
-    margin: 18px 0 14px; padding: 12px; background: var(--card);
+    margin: 0 0 14px; padding: 12px; background: var(--card);
     border: 1px solid var(--border); border-radius: 10px;
   }
   .controls label { font-size: 12px; color: var(--muted); display: block; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
@@ -52,81 +121,222 @@
   .pts { font-weight: 700; color: var(--accent); }
   .bar { height: 5px; width: 100%; background: var(--bg); border-radius: 3px; overflow: hidden; margin-top: 4px; }
   .bar i { display: block; height: 100%; background: linear-gradient(90deg, #238636, #2ea043); border-radius: 3px; }
-  .pill {
-    display: inline-block; padding: 2px 8px; border-radius: 999px;
-    font-size: 11px; border: 1px solid var(--border); color: var(--muted);
-  }
   .empty { padding: 48px; text-align: center; color: var(--muted); }
-  footer { margin-top: 16px; color: var(--muted); font-size: 12px; display: flex; justify-content: space-between; }
-  a { color: var(--accent); text-decoration: none; }
-  a:hover { text-decoration: underline; }
   .tooltip { position: relative; cursor: default; border-bottom: 1px dotted var(--muted); }
   .tooltip:hover::after {
     content: attr(data-tip); position: absolute; bottom: 130%; left: 50%;
     transform: translateX(-50%); background: var(--card); border: 1px solid var(--border);
     padding: 6px 10px; border-radius: 6px; font-size: 12px; white-space: nowrap; color: var(--text); z-index: 5;
   }
+
+  footer { margin-top: 22px; color: var(--muted); font-size: 12px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
-    <h1>🥬 <span class="kimchi">kimchi</span> workshop leaderboard</h1>
-    <span class="sub" id="repo-sub"></span>
+    <h1>🥬 <span class="kimchi">kimchi</span> workshop</h1>
+    <span class="sub">fix the service. survive production. get ranked.</span>
   </header>
 
-  <div class="controls">
-    <div>
-      <label for="event">Event / workshop code</label>
-      <select id="event"></select>
-    </div>
-    <div>
-      <label for="topn">Show</label>
-      <select id="topn">
-        <option value="10">Top 10</option>
-        <option value="20">Top 20</option>
-        <option value="50">Top 50</option>
-        <option value="all" selected>All</option>
-      </select>
-    </div>
-    <div>
-      <label for="search">Find participant</label>
-      <input type="search" id="search" placeholder="handle or github login">
-    </div>
-    <div class="meta">
-      <div id="updated">loading…</div>
-      <div id="count"></div>
-    </div>
-  </div>
+  <nav class="tabs">
+    <button class="tab active" data-pane="guide">Briefing</button>
+    <button class="tab" data-pane="board">Leaderboard</button>
+  </nav>
 
-  <table>
-    <thead>
-      <tr>
-        <th class="rank">#</th>
-        <th>Participant</th>
-        <th>PR</th>
-        <th class="tooltip" data-tip="tests passing in the submission PR">Tests</th>
-        <th class="tooltip" data-tip="self-reported spend from the console export">Cost</th>
-        <th class="tooltip" data-tip="output + efficiency; see workshop/SCORING.md">Points</th>
-      </tr>
-    </thead>
-    <tbody id="rows"></tbody>
-  </table>
-  <div class="empty" id="empty" style="display:none">
-    No accepted submissions yet for this event.<br><br>
-    Facilitators: accept a submission PR with the <code>accepted</code> label
-    and it appears here within a minute.
-  </div>
+  <section class="pane active" id="pane-guide">
 
-  <footer>
-    <span>Points = tests×10 + review×50 + efficiency. Output first, cost second.</span>
-    <span>auto-refreshes every 60s</span>
-  </footer>
+    <div class="hero">
+      <span class="sev">SEV2 &middot; task-api &middot; 2026-10-22</span>
+      <p>
+        Yesterday the company task-tracker API 500'd its way through a
+        production incident. A hasty patch made it worse &mdash; new error
+        signatures, a hardcoded secret in the deployed config, and an
+        endpoint serving the whole table on every request. The team
+        rolled it back at 15:07 UTC.
+      </p>
+      <p>
+        <strong>You are the on-call engineer now.</strong> The repo you're
+        about to clone is the pre-patch state. Your job: get the service
+        back to production-ready, prove it, and submit &mdash; before the
+        CTO asks for the third time why this is still on fire.
+      </p>
+    </div>
+
+    <h2><span class="n">01</span>Get the repo and go red</h2>
+    <div class="card">
+      <pre><span class="c"># the entry ticket &mdash; expect red</span>
+git clone https://github.com/castai/kimchi-workshop.git
+cd kimchi-workshop
+python3 -m venv .venv &amp;&amp; source .venv/bin/activate
+pip install -r requirements.txt
+python -m pytest tests/ -q</pre>
+      <p><strong>4 failed, 5 passed.</strong> That red is your starting
+      position. Turn it green. How you do it is the workshop.</p>
+      <div class="kbd-row">
+        <span class="step-pill"><b>full timeline</b> &mdash; PRODUCTION-INCIDENT.md in the repo</span>
+        <span class="step-pill"><b>the spec</b> &mdash; the docstrings, not the code</span>
+      </div>
+    </div>
+
+    <h2><span class="n">02</span>Drive the agent, own the diff</h2>
+    <div class="card">
+      <p>This workshop exists to teach agent-assisted coding. Drive
+      <a href="https://github.com/getkimchi/kimchi">kimchi</a> at the
+      broken service, verify every line it produces, commit only what
+      you can defend in review.</p>
+      <pre><span class="c"># first time with kimchi?</span>
+curl -fsSL https://github.com/getkimchi/kimchi/releases/latest/download/install.sh | bash
+<span class="c"># or: brew install getkimchi/tap/kimchi</span>
+
+<span class="c"># sign up at app.kimchi.dev (no card), or use a facilitator key</span>
+export KIMCHI_API_KEY=&lt;key&gt;
+
+<span class="c"># inside the repo &mdash; your spend gets attributed through this tag</span>
+kimchi
+/tags add attendee:&lt;your-handle&gt;</pre>
+      <p>Track your spend at
+      <a href="https://app.kimchi.dev/usage">app.kimchi.dev/usage</a> &mdash;
+      you will submit it later.</p>
+    </div>
+
+    <h2><span class="n">03</span>The rules</h2>
+    <div class="card">
+      <ol>
+        <li><strong>Fix the app, not the tests.</strong> Everything under
+          <code>tests/</code> is read-only. If a test looks wrong, look
+          again.</li>
+        <li><strong>The docstrings are the spec.</strong> Where code and
+          docstrings disagree, the docstring describes intended behavior.
+          Make the code honest.</li>
+        <li><strong>Small, verifiable changes.</strong> Re-run the suite
+          after every edit. A broken intermediate step costs you time,
+          not points.</li>
+        <li><strong>Green visible suite is the floor, not the
+          ceiling.</strong> Your PR is also scored by a verification
+          suite you cannot see &mdash; production will tell you about it
+          in the PR comments.</li>
+      </ol>
+    </div>
+
+    <h2><span class="n">04</span>Submit &mdash; and understand the lifecycle</h2>
+    <div class="card">
+      <ol>
+        <li>Fork the repo, push your work, open a PR titled
+          <code>[submission] &lt;your-handle&gt; - &lt;what you shipped&gt;</code>.</li>
+        <li>Fill the PR template block exactly:
+          <pre><span class="c"># in the PR body</span>
+attendee: &lt;your-handle&gt;
+event: &lt;event-code your facilitator announced&gt;
+cost_usd: &lt;session spend from app.kimchi.dev&gt;
+review_score:</pre>
+        </li>
+        <li>Attach your Kimchi <strong>usage CSV export</strong> to the PR
+          (from app.kimchi.dev/usage, filtered by
+          <code>attendee:&lt;handle&gt;</code>). No CSV, no leaderboard &mdash;
+          spend claims are verified.</li>
+      </ol>
+    </div>
+
+    <div class="card warn">
+      <p><strong>Your PR never merges &mdash; by design.</strong> It is a
+      scoring vessel, not a contribution to the repo. Scoring runs on
+      it, you get ranked, production tells its story in your PR's
+      comments, and then the PR is <strong>closed unmerged</strong>.
+      That keeps the seed repo identical for every participant after
+      you. Your score and your PR comments stay; the repo doesn't
+      change.</p>
+    </div>
+
+    <div class="card notice">
+      <p><strong>How a score becomes a rank:</strong> CI scores your PR
+      automatically (visible suite + hidden production scenario). A
+      facilitator reviews and labels it <code>accepted</code>. Within a
+      minute you appear on the <strong>Leaderboard</strong> tab up top
+      &mdash; event dropdown, top-N, search, 60-second refresh.</p>
+    </div>
+
+    <h2><span class="n">05</span>Scoring</h2>
+    <div class="card">
+      <pre>output     = tests_passed &times; 10 + (review_score / 100) &times; 50
+efficiency = &plusmn;20 based on your spend vs the budget
+points     = output + efficiency</pre>
+      <p>A cheap no-op always loses to real work. Production failures
+      cost you more than any spend ever will.</p>
+    </div>
+
+  </section>
+
+  <section class="pane" id="pane-board">
+    <div class="controls">
+      <div>
+        <label for="event">Event / workshop code</label>
+        <select id="event"></select>
+      </div>
+      <div>
+        <label for="topn">Show</label>
+        <select id="topn">
+          <option value="10">Top 10</option>
+          <option value="20">Top 20</option>
+          <option value="50">Top 50</option>
+          <option value="all" selected>All</option>
+        </select>
+      </div>
+      <div>
+        <label for="search">Find participant</label>
+        <input type="search" id="search" placeholder="handle or github login">
+      </div>
+      <div class="meta">
+        <div id="updated">loading&hellip;</div>
+        <div id="count"></div>
+      </div>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th class="rank">#</th>
+          <th>Participant</th>
+          <th>PR</th>
+          <th class="tooltip" data-tip="tests passing in the submission PR">Tests</th>
+          <th class="tooltip" data-tip="self-reported spend from the console export, CSV verified">Cost</th>
+          <th class="tooltip" data-tip="output + efficiency">Points</th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <div class="empty" id="empty" style="display:none">
+      No accepted submissions yet for this event.<br><br>
+      Submissions are scored on their PR, ranked on accept, and the PR
+      is closed unmerged &mdash; the repo stays pristine for the next engineer.
+    </div>
+
+    <footer>
+      <span>Points = tests&times;10 + review&times;50 + efficiency. Output first, cost second.</span>
+      <span>auto-refreshes every 60s</span>
+    </footer>
+  </section>
 </div>
 
 <script>
 const CONFIG_URL = "config.json";
 const BOARD_URL = "leaderboard.json";
+
+/* tabs */
+document.querySelectorAll(".tab").forEach(t => {
+  t.addEventListener("click", () => {
+    document.querySelectorAll(".tab").forEach(x => x.classList.remove("active"));
+    document.querySelectorAll(".pane").forEach(x => x.classList.remove("active"));
+    t.classList.add("active");
+    document.getElementById("pane-" + t.dataset.pane).classList.add("active");
+  });
+});
+// deep link: #board opens leaderboard tab
+if (location.hash === "#board") {
+  document.querySelector('.tab[data-pane="board"]').click();
+}
 
 async function load() {
   let board;
@@ -143,7 +353,8 @@ async function load() {
     board.repo = config.repo || "";
     if (config.default_event) board.default_event = config.default_event;
   } catch (e) {
-    document.getElementById("updated").textContent = "failed to load leaderboard.json";
+    var el = document.getElementById("updated");
+    if (el) el.textContent = "failed to load leaderboard.json";
     return;
   }
   window.__board = board;
@@ -157,8 +368,6 @@ async function load() {
     .join("");
   if (keep && names.includes(keep)) evSel.value = keep;
 
-  document.getElementById("repo-sub").textContent =
-    board.repo || "";
   render();
 }
 
