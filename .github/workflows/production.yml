@@ -219,3 +219,4 @@ jobs:
             echo "$FAILURES" | tr ';' '\n' | sed 's/^/- /' | grep -v '^- $' >> /tmp/block_body.txt
             gh pr comment "$PR_NUMBER" --repo "${{ github.repository }}" --body-file /tmp/block_body.txt
           fi
+
