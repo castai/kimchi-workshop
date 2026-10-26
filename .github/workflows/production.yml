@@ -35,23 +35,24 @@ jobs:
 
       - run: pip install -r requirements.txt pytest
 
-      - name: Fetch hidden suite (private answers repo)
-        env:
-          ANSWERS_PAT: ${{ secrets.ANSWERS_REPO_PAT }}
+      - name: Fetch hidden suite from the private answers repo
+        uses: actions/checkout@v4
+        with:
+          repository: castai/kimchi-workshop-answers
+          ref: verification
+          path: answers/
+          token: ${{ secrets.ANSWERS_REPO_PAT }}
+          persist-credentials: false
+          sparse-checkout: .verification
+          # required for fork PRs: surface the real error if the PAT
+          # cannot see the answers repo
+          allow-unsafe-pr-checkout: true
+
+      - name: Stage hidden suite
         run: |
-          if [ -z "$ANSWERS_PAT" ]; then
-            echo "::error::ANSWERS_REPO_PAT secret is not configured on this repository."
-            echo "Ask the facilitator to add a fine-grained PAT with contents:read on"
-            echo "castai/kimchi-workshop-answers under Settings > Secrets > Actions."
-            exit 1
-          fi
           mkdir -p .verification
-          for f in test_hidden.py format_prod_log.py; do
-            curl -sfL -H "Authorization: Bearer $ANSWERS_PAT" \
-              "https://api.github.com/repos/castai/kimchi-workshop-answers/contents/.verification/$f?ref=verification" \
-              | python -c "import json,sys,base64; sys.stdout.buffer.write(base64.b64decode(json.load(sys.stdin)['content']))" \
-              > ".verification/$f"
-          done
+          cp answers/.verification/test_hidden.py .verification/
+          cp answers/.verification/format_prod_log.py .verification/
 
       - name: Run production scenario
         id: prod
