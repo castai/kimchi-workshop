@@ -84,7 +84,15 @@ jobs:
         run: |
           cp answers/.verification/frame_email.py .verification/frame_email.py
           python3 .verification/frame_email.py prod_log.md prod_email_body.txt
-          cat prod_email_body.txt
+
+      - name: Frame production log as a technical PR comment
+        env:
+          KIMCHI_API_KEY: ${{ secrets.KIMCHI_API_KEY }}
+        continue-on-error: true
+        run: |
+          cp answers/.verification/frame_pr_comment.py .verification/frame_pr_comment.py
+          python3 .verification/frame_pr_comment.py prod_log.md prod_pr_comment.txt
+          cat prod_pr_comment.txt
 
       - name: "Gate: production score must be at least 20/26"
         continue-on-error: true
@@ -110,9 +118,13 @@ jobs:
         with:
           script: |
             const fs = require("fs");
-            const bodyFile = fs.existsSync("prod_email_body.txt")
-              ? "prod_email_body.txt" : "prod_log.md";
-            const body = fs.readFileSync(bodyFile, "utf8");
+            let bodyFile = null;
+            if (fs.existsSync("prod_pr_comment.txt")) {
+              bodyFile = "prod_pr_comment.txt";
+            } else if (fs.existsSync("prod_log.md")) {
+              bodyFile = "prod_log.md";
+            }
+            const body = bodyFile ? fs.readFileSync(bodyFile, "utf8") : "Could not parse production results.";
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
