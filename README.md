@@ -29,6 +29,9 @@ The workshop runs in three formats off this one repo: a 2.5h guided lab
 (the **tasting menu**), a half-day **builder sprint**, and a **self-paced
 codelab** (you are doing that one right now).
 
+> **Just here to play?** [`CHALLENGE.md`](CHALLENGE.md) — the brief,
+> the rules, the submission path. No answers inside.
+>
 > **Participant walkthrough, step by step, with every solution in
 > detail:** [`workshop/PARTICIPANT.md`](workshop/PARTICIPANT.md)
 >
