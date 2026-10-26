@@ -4,8 +4,10 @@ Seed state: intentionally bad. Do not copy these patterns into anything real.
 """
 import os
 
-# TODO: move this to an environment variable before anyone notices
-SECRET_KEY = "sk-live-kimchi-workshop-9f8e7d6c5b4a"
+# Read from the process environment so credentials never live in source.
+# A clearly-marked dev fallback keeps local workshops and tests running
+# without committing a real secret to the repo.
+SECRET_KEY = os.environ.get("SECRET_KEY") or "dev-secret-do-not-use-in-prod"
 
 DEBUG = True
 
