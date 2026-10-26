@@ -187,9 +187,9 @@ jobs:
             [ -z "$RUN_ID" ] && continue
             mkdir -p /tmp/visible_artifacts
             if gh run download "$RUN_ID" --repo "${{ github.repository }}" --name submission-score -D /tmp/visible_artifacts 2>/dev/null; then
-              if [ -f /tmp/visible_artifacts/submission-score.json ]; then
-                V_PASS=$(python3 -c "import json;d=json.load(open('/tmp/visible_artifacts/submission-score.json'));print(d.get('passed',0))")
-                VISIBLE_TOTAL=$(python3 -c "import json;d=json.load(open('/tmp/visible_artifacts/submission-score.json'));print(d.get('total',9))")
+              if [ -f /tmp/visible_artifacts/score.json ]; then
+                V_PASS=$(python3 -c "import json;d=json.load(open('/tmp/visible_artifacts/score.json'));print(d.get('tests_passed',0))")
+                VISIBLE_TOTAL=$(python3 -c "import json;d=json.load(open('/tmp/visible_artifacts/score.json'));print(d.get('tests_passed',0)+d.get('tests_failed',0))")
                 break
               fi
             fi
