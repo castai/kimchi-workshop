@@ -39,6 +39,19 @@
       "category": "production",
       "body": "_task-api's been paged again, looped you in_\n\nProduction is angry. The incident channel's been spinning for a while now.\n\nThe on-call joined the call forty seconds late saying \"okay so, funny story.\"\n\nThe floor has that specific silence where everyone's in the same channel and nobody's typing.\n\nProduction report, straight from the service:\n\n\n✅ **Deployment** — Deployment initiated. Containers warm, hands dry.\n\n✅ **Validation** — Validation layer up, malformed payloads bounce off clean.\n\n❌ **Traffic shaping** — /tasks returned the whole table. The whole table.\n   DevOps: \"Why is the response body 40MB.\" Nobody answers.\n   the store filters, but the route never passes the params through\n\n❌ **Bulk export** — Finance downloaded the export and half their tasks vanished.\n   Finance: \"We exported after cleaning up and the deleted tasks are still in the CSV.\"\n   export route needs to reflect deletes and set the right headers\n\n✅ **Rate limiting** — Rate limiter holds the line at sustained load.\n\n❌ **Garbage collection** — Tasks people were actively editing started disappearing.\n   Support ticket: \"My task is GONE. I was editing it five minutes ago.\" Reproducible. Ouch.\n   GC reaps by creation time, not last activity, check the store docstrings\n\n✅ **Sync conflicts** — Sync merges resolve last-writer-wins with a sane tie-break.\n\n✅ **Time hygiene** — Timestamps are UTC-aware and round-trip cleanly.\n\n❌ **Cache invalidation** — Deleted a task. Refreshed. Still there. Refreshed. Still there.\n   Everyone starts hard-refreshing their browsers like it's 2009.\n   writes need to invalidate the list cache\n\n---\n**20/26 checks green.** Hotfix now, post-mortem Thursday. The on-call owes the team coffee.\n\nAlex.",
       "pr_url": "https://github.com/castai/kimchi-workshop/pull/17"
+    },
+    {
+      "id": "prod-log-pr-17-f55a042",
+      "from": {
+        "name": "Alex Rivera",
+        "role": "Senior SRE",
+        "bg": "#0b5394"
+      },
+      "subject": "Re: deployment - production is unhappy again",
+      "timestamp": "2026-10-26 14:50 UTC",
+      "category": "production",
+      "body": "_task-api's been paged again, looped you in_\n\nProduction is angry. The incident channel's been spinning for a while now.\n\nThe on-call joined the call forty seconds late saying \"okay so, funny story.\"\n\nThe floor has that specific silence where everyone's in the same channel and nobody's typing.\n\nProduction report, straight from the service:\n\n\n✅ **Deployment** — Deployment initiated. Containers warm, hands dry.\n\n✅ **Validation** — Validation layer up, malformed payloads bounce off clean.\n\n❌ **Traffic shaping** — /tasks returned the whole table. The whole table.\n   DevOps: \"Why is the response body 40MB.\" Nobody answers.\n   the store filters, but the route never passes the params through\n\n✅ **Bulk export** — CSV export reflects the current state of the world.\n\n✅ **Rate limiting** — Rate limiter holds the line at sustained load.\n\n❌ **Garbage collection** — Tasks people were actively editing started disappearing.\n   Support ticket: \"My task is GONE. I was editing it five minutes ago.\" Reproducible. Ouch.\n   GC reaps by creation time, not last activity, check the store docstrings\n\n✅ **Sync conflicts** — Sync merges resolve last-writer-wins with a sane tie-break.\n\n✅ **Time hygiene** — Timestamps are UTC-aware and round-trip cleanly.\n\n❌ **Cache invalidation** — Deleted a task. Refreshed. Still there. Refreshed. Still there.\n   Everyone starts hard-refreshing their browsers like it's 2009.\n   writes need to invalidate the list cache\n\n---\n**21/26 checks green.** Hotfix now, post-mortem Thursday. The on-call owes the team coffee.\n\nAlex.",
+      "pr_url": "https://github.com/castai/kimchi-workshop/pull/17"
     }
   ]
 }
