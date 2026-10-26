@@ -72,6 +72,23 @@ jobs:
           EOF
           cat prod_log.md
 
+      - name: "Gate: production score must be at least 20/26"
+        run: |
+          python3 - <<'EOF'
+          import re, sys
+          out = open("prod_log.md").read()
+          m = re.search(r"Production score: (\d+)/(\d+)", out)
+          if not m:
+              print("No production score found in log.")
+              sys.exit(1)
+          passed, total = int(m.group(1)), int(m.group(2))
+          if passed < 20:
+              print(f"::error::Production score {passed}/{total} below the merge threshold (20). "
+                    "Fix the failing areas the log reports and re-run.")
+              sys.exit(1)
+          print(f"Production gate passed: {passed}/{total}")
+          EOF
+
       - name: Post production log on the PR
         uses: actions/github-script@v7
         with:
@@ -102,14 +119,16 @@ jobs:
           fi
           # append_personal_mail.py lives on the gh-pages branch itself
           test -f append_personal_mail.py
+          # unique id per commit so every push lands as a NEW email
+          SHORT_SHA=$(echo "${{ github.event.pull_request.head.sha }}" | cut -c1-7)
           python3 append_personal_mail.py \
             --site-dir . \
             --handle "${{ github.event.pull_request.user.login }}" \
-            --id "prod-log-pr-${{ github.event.pull_request.number }}" \
-            --from-name "Marcus Okafor" \
-            --from-role "Senior SRE, Service Owner" \
+            --id "prod-log-pr-${{ github.event.pull_request.number }}-${SHORT_SHA}" \
+            --from-name "Alex Rivera" \
+            --from-role "Senior SRE" \
             --from-bg "#0b5394" \
-            --subject "Production report for PR #${{ github.event.pull_request.number }} — the office has opinions" \
+            --subject "Re: deployment — production is unhappy again" \
             --category production \
             --body-file "$BODY_FILE" \
             --pr-url "${{ github.event.pull_request.html_url }}"
