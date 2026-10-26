@@ -1,9 +1,4 @@
-"""JSON error handlers for the API.
-
-The handlers below are defined but nothing calls them yet. Wire
-register_error_handlers in your app factory so the routes render
-consistent JSON errors.
-"""
+"""JSON error handlers for the API."""
 from flask import jsonify
 
 
