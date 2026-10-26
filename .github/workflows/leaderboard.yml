@@ -38,6 +38,7 @@ jobs:
           name: submission-score
           path: download/
           pr: ${{ github.event.pull_request.number }}
+          allow_forks: true
 
       - name: Download production score
         uses: dawidd6/action-download-artifact@v6
@@ -46,6 +47,7 @@ jobs:
           name: production-score
           path: download/
           pr: ${{ github.event.pull_request.number }}
+          allow_forks: true
           if-no-files-found: ignore
 
       - name: Record the accepted submission
