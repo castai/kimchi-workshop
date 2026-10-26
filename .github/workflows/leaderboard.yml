@@ -37,6 +37,7 @@ jobs:
           workflow: score-pr.yml
           name: submission-score
           path: download/
+          pr: ${{ github.event.pull_request.number }}
 
       - name: Download production score
         uses: dawidd6/action-download-artifact@v6
@@ -44,6 +45,7 @@ jobs:
           workflow: production.yml
           name: production-score
           path: download/
+          pr: ${{ github.event.pull_request.number }}
           if-no-files-found: ignore
 
       - name: Record the accepted submission
