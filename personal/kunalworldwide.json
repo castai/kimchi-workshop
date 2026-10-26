@@ -191,9 +191,9 @@
         "bg": "#b3261e"
       },
       "subject": "Submission accepted - you ranked",
-      "timestamp": "2026-10-26 15:48 UTC",
+      "timestamp": "2026-10-26 15:50 UTC",
       "category": "score",
-      "body": "Hi —\n\nAccepted. The facilitator has reviewed the PR, the suite, and the production story. Your submission is on the board.\n\n  Points: 274.5\n  Rank in bot-verify-2026-10-22: #? of 0\n  Visible checks: 26 passed\n  Your spend: $0.55\n\nThe PR stays open in the queue for audit, but the leaderboard row is permanent. If you want to see the production story that got you here, check your inbox — Alex sent it already.\n\nNow go help the next person. The company is in good hands.\n\n— Sam",
+      "body": "Hi —\n\nAccepted. The facilitator has reviewed the PR, the suite, and the production story. Your submission is on the board.\n\n  Points: 274.5\n  Rank in bot-verify-2026-10-22: #1 of 1\n  Visible checks: 26 passed\n  Your spend: $0.55\n\nThe PR stays open in the queue for audit, but the leaderboard row is permanent. If you want to see the production story that got you here, check your inbox — Alex sent it already.\n\nNow go help the next person. The company is in good hands.\n\n— Sam",
       "pr_url": "https://github.com/castai/kimchi-workshop/pull/17"
     },
     {
