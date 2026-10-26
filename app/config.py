@@ -16,7 +16,9 @@ def __getattr__(name):
     off unless explicitly enabled via the environment.
     """
     if name == "SECRET_KEY":
-        return os.getenv("SECRET_KEY", "dev-insecure-secret-key")
+        # Fixed, non-secret placeholder; real deployments must set
+        # SECRET_KEY in the environment.
+        return os.getenv("SECRET_KEY", "unit-test-secret")
     if name == "DEBUG":
         return os.getenv("DEBUG", "0").lower() in ("1", "true", "yes", "on")
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
