@@ -3,346 +3,614 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>🥬 Kimchi Workshop</title>
+<title>Kimchi Workshop — Inbox</title>
 <style>
   :root {
-    --bg: #0d1117; --card: #161b22; --border: #30363d;
-    --text: #e6edf3; --muted: #8b949e; --accent: #2ea043;
-    --gold: #e3b341; --silver: #adbac7; --bronze: #d0a27a;
-    --warn: #d29922; --bad: #f85149;
+    --bg: #111318;
+    --panel: #1a1d24;
+    --panel2: #20242d;
+    --border: #2c313a;
+    --text: #e8eaf0;
+    --muted: #9aa0ac;
+    --dim: #6b7280;
+    --accent: #4ade80;
+    --accent-dim: rgba(74, 222, 128, 0.12);
+    --gold: #fbbf24;
+    --silver: #cbd5e1;
+    --bronze: #d0a27a;
+    --danger: #f87171;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
       Helvetica, Arial, sans-serif;
     background: var(--bg); color: var(--text);
-    min-height: 100vh; padding: 24px;
+    height: 100vh; overflow: hidden;
+    display: flex; flex-direction: column;
   }
-  .wrap { max-width: 980px; margin: 0 auto; }
-  header { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin-bottom: 6px; }
-  h1 { font-size: 26px; font-weight: 700; letter-spacing: -0.5px; }
-  h1 .kimchi { color: var(--accent); }
-  .sub { color: var(--muted); font-size: 13px; }
+  button { font: inherit; cursor: pointer; }
 
-  .tabs { display: flex; gap: 4px; margin: 18px 0 0; border-bottom: 1px solid var(--border); }
-  .tab {
-    padding: 10px 18px; font-size: 14px; font-weight: 600; cursor: pointer;
-    color: var(--muted); border: 1px solid transparent; border-bottom: none;
-    border-radius: 8px 8px 0 0; background: transparent;
+  header {
+    height: 54px; flex: none;
+    display: flex; align-items: center; gap: 14px;
+    padding: 0 18px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
   }
-  .tab:hover { color: var(--text); }
-  .tab.active {
-    color: var(--text); background: var(--card);
-    border-color: var(--border);
-    margin-bottom: -1px; padding-bottom: 11px;
+  .brand { display: flex; align-items: baseline; gap: 8px; }
+  .brand .logo { font-size: 18px; font-weight: 800; letter-spacing: -0.5px; }
+  .brand .logo .k { color: var(--accent); }
+  .brand .tag { color: var(--muted); font-size: 12px; font-style: italic; }
+  header .spacer { flex: 1; }
+  .handle-pill {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--panel2); border: 1px solid var(--border);
+    border-radius: 999px; padding: 5px 12px;
   }
-  .pane { display: none; padding-top: 22px; }
-  .pane.active { display: block; }
+  .handle-pill input {
+    background: transparent; border: none; outline: none;
+    color: var(--text); font-size: 13px; width: 130px;
+  }
+  .handle-pill input::placeholder { color: var(--dim); }
+  .handle-pill .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dim); }
+  .handle-pill.active .dot { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+  .help-btn {
+    width: 30px; height: 30px; border-radius: 50%;
+    background: transparent; border: 1px solid var(--border);
+    color: var(--muted); font-size: 14px;
+  }
+  .help-btn:hover { color: var(--text); border-color: var(--accent); }
 
-  .hero {
-    background: var(--card); border: 1px solid var(--border); border-radius: 10px;
-    padding: 22px 24px; margin-bottom: 18px;
-  }
-  .hero .sev {
-    display: inline-block; padding: 3px 10px; border-radius: 999px;
-    font-size: 11px; font-weight: 700; letter-spacing: 0.6px;
-    background: rgba(248, 81, 73, 0.12); color: var(--bad);
-    border: 1px solid rgba(248, 81, 73, 0.4); margin-bottom: 12px;
-  }
-  .hero p { color: var(--muted); line-height: 1.65; font-size: 14.5px; }
-  .hero p + p { margin-top: 10px; }
-  .hero strong { color: var(--text); }
+  .layout { flex: 1; display: flex; min-height: 0; }
 
-  h2 { font-size: 17px; font-weight: 700; margin: 26px 0 12px; }
-  h2 .n { color: var(--muted); font-weight: 500; margin-right: 8px; }
+  nav.rail {
+    width: 76px; flex: none;
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    display: flex; flex-direction: column;
+    padding-top: 10px;
+  }
+  .rail-item {
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    padding: 12px 4px; margin: 2px 8px;
+    background: transparent; border: none; border-radius: 10px;
+    color: var(--muted); font-size: 10.5px; position: relative;
+  }
+  .rail-item .ico { font-size: 19px; }
+  .rail-item:hover { color: var(--text); background: var(--panel2); }
+  .rail-item.active { color: var(--accent); background: var(--accent-dim); }
+  .rail-item .badge {
+    position: absolute; top: 6px; right: 12px;
+    min-width: 16px; height: 16px; padding: 0 4px;
+    background: var(--danger); color: #fff;
+    border-radius: 999px; font-size: 10px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .rail-bottom { margin-top: auto; padding-bottom: 10px; }
 
-  .card {
-    background: var(--card); border: 1px solid var(--border); border-radius: 10px;
-    padding: 18px 20px; margin-bottom: 14px;
+  .mail-list {
+    width: 340px; flex: none;
+    background: var(--bg);
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
   }
-  .card p, .card li { color: var(--muted); font-size: 14px; line-height: 1.7; }
-  .card ul, .card ol { padding-left: 20px; }
-  .card li + li { margin-top: 6px; }
-  .card strong { color: var(--text); }
-  .card code {
-    background: var(--bg); border: 1px solid var(--border); border-radius: 5px;
-    padding: 1px 6px; font-size: 12.5px; color: var(--text);
-    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  .mail-list-header {
+    padding: 14px 16px 10px;
+    font-size: 12px; text-transform: uppercase; letter-spacing: 0.8px;
+    color: var(--muted);
+    display: flex; justify-content: space-between; align-items: center;
+    position: sticky; top: 0; background: var(--bg); z-index: 2;
   }
-  pre {
-    background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
-    padding: 14px 16px; margin: 12px 0 4px; overflow-x: auto;
-    font-size: 13px; line-height: 1.6; color: var(--text);
-    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  .mail-card {
+    display: flex; gap: 10px;
+    padding: 13px 16px 13px 18px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer; position: relative;
   }
-  pre .c { color: var(--muted); }
-  .warn {
-    border-color: rgba(210, 153, 34, 0.5); background: rgba(210, 153, 34, 0.06);
+  .mail-card:hover { background: var(--panel); }
+  .mail-card.selected { background: var(--panel); box-shadow: inset 3px 0 0 var(--accent); }
+  .mail-card.unread .subject { color: var(--text); font-weight: 700; }
+  .mail-card.unread .sender { color: var(--accent); font-weight: 700; }
+  .mail-card .unread-dot {
+    position: absolute; left: 6px; top: 50%; transform: translateY(-50%);
+    width: 6px; height: 6px; border-radius: 50%; background: var(--accent);
   }
-  .warn strong { color: var(--warn); }
-  .notice {
-    border-color: rgba(46, 160, 67, 0.45); background: rgba(46, 160, 67, 0.06);
+  .mail-card .avatar {
+    width: 34px; height: 34px; border-radius: 50%; flex: none;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 13px; color: #fff;
   }
-  .notice strong { color: var(--accent); }
-  .kbd-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
-  .step-pill {
-    padding: 4px 12px; border: 1px solid var(--border); border-radius: 999px;
-    font-size: 12px; color: var(--muted);
+  .mail-card .mm { min-width: 0; flex: 1; }
+  .mail-card .row1 { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .mail-card .sender { font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mail-card .time { font-size: 11px; color: var(--dim); flex: none; }
+  .mail-card .subject { font-size: 13px; color: var(--text); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mail-card .snippet { font-size: 12px; color: var(--muted); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mail-card .cat {
+    display: inline-block; font-size: 10px; padding: 1px 7px; margin-top: 5px;
+    border: 1px solid var(--border); border-radius: 999px; color: var(--dim);
+    text-transform: uppercase; letter-spacing: 0.5px;
   }
-  .step-pill b { color: var(--text); }
+  .list-empty { padding: 40px 20px; text-align: center; color: var(--dim); font-size: 13px; line-height: 1.7; }
 
+  .reader {
+    flex: 1; min-width: 0;
+    background: var(--panel);
+    overflow-y: auto;
+    display: flex; flex-direction: column;
+  }
+  .reader-empty {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 12px;
+    color: var(--dim);
+  }
+  .reader-empty .big { font-size: 52px; opacity: 0.5; }
+  .reader-empty .cap { font-size: 14px; }
+
+  .mail-view { max-width: 820px; width: 100%; margin: 0 auto; padding: 28px 34px 60px; }
+  .mail-view .subject-big { font-size: 21px; font-weight: 700; line-height: 1.35; }
+  .mail-view .catline { margin-top: 8px; display: flex; gap: 8px; }
+  .mail-view .catpill {
+    font-size: 10.5px; padding: 2px 9px;
+    background: var(--panel2); border: 1px solid var(--border);
+    border-radius: 999px; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .mail-head { display: flex; gap: 12px; align-items: center; margin: 22px 0 6px; }
+  .mail-head .avatar {
+    width: 42px; height: 42px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 15px; color: #fff; flex: none;
+  }
+  .mail-head .who .name { font-size: 14.5px; font-weight: 700; }
+  .mail-head .who .role { font-size: 12px; color: var(--muted); }
+  .mail-head .when { margin-left: auto; font-size: 12px; color: var(--dim); }
+  .mail-body {
+    margin-top: 18px; font-size: 14px; line-height: 1.8; color: #d6d9e0;
+    white-space: pre-wrap;
+  }
+  .mail-body strong { color: var(--text); }
+  .mail-actions { margin-top: 26px; padding-top: 18px; border-top: 1px solid var(--border); display: flex; gap: 10px; flex-wrap: wrap; }
+  .btn {
+    padding: 9px 18px; border-radius: 8px; font-size: 13px; font-weight: 600;
+    border: 1px solid var(--border); background: var(--panel2); color: var(--text);
+    text-decoration: none; display: inline-flex; align-items: center; gap: 7px;
+  }
+  .btn:hover { border-color: var(--accent); }
+  .btn.primary { background: var(--accent); color: #062b16; border-color: var(--accent); }
+  .btn.primary:hover { filter: brightness(1.1); }
+
+  .board-wrap { flex: 1; min-width: 0; overflow-y: auto; padding: 22px 26px; display: none; }
+  .board-wrap.on { display: block; }
+  .board-inner { max-width: 980px; margin: 0 auto; }
   .controls {
     display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
-    margin: 0 0 14px; padding: 12px; background: var(--card);
+    margin: 0 0 14px; padding: 12px; background: var(--panel);
     border: 1px solid var(--border); border-radius: 10px;
   }
-  .controls label { font-size: 12px; color: var(--muted); display: block; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
-  select, input[type="search"] {
+  .controls label { font-size: 11px; color: var(--muted); display: block; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .controls select, .controls input {
     background: var(--bg); color: var(--text); border: 1px solid var(--border);
-    border-radius: 6px; padding: 8px 10px; font-size: 14px; min-width: 180px;
+    border-radius: 6px; padding: 8px 10px; font-size: 13px; min-width: 170px;
   }
-  input[type="search"] { min-width: 220px; }
   .meta { margin-left: auto; font-size: 12px; color: var(--muted); text-align: right; }
-  table { width: 100%; border-collapse: collapse; background: var(--card);
+  table { width: 100%; border-collapse: collapse; background: var(--panel);
     border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
-  th, td { padding: 11px 14px; text-align: left; font-size: 14px; }
+  th, td { padding: 11px 14px; text-align: left; font-size: 13.5px; }
   thead th {
-    background: #1c2129; color: var(--muted); font-size: 11px;
+    background: var(--panel2); color: var(--muted); font-size: 10.5px;
     text-transform: uppercase; letter-spacing: 0.8px; border-bottom: 1px solid var(--border);
   }
   tbody tr { border-bottom: 1px solid var(--border); }
   tbody tr:last-child { border-bottom: none; }
-  tbody tr:hover { background: #1c2129; }
-  .rank { width: 64px; font-weight: 700; }
+  tbody tr:hover { background: var(--panel2); }
+  tbody tr.me { background: var(--accent-dim); }
+  .rank { width: 60px; font-weight: 700; }
   .rank-1 { color: var(--gold); } .rank-2 { color: var(--silver); } .rank-3 { color: var(--bronze); }
-  .medal { font-size: 15px; margin-right: 4px; }
+  .medal { font-size: 14px; margin-right: 3px; }
   .handle { font-weight: 600; }
   .gh { color: var(--muted); font-size: 12px; }
   .pts { font-weight: 700; color: var(--accent); }
   .bar { height: 5px; width: 100%; background: var(--bg); border-radius: 3px; overflow: hidden; margin-top: 4px; }
-  .bar i { display: block; height: 100%; background: linear-gradient(90deg, #238636, #2ea043); border-radius: 3px; }
-  .empty { padding: 48px; text-align: center; color: var(--muted); }
-  .tooltip { position: relative; cursor: default; border-bottom: 1px dotted var(--muted); }
-  .tooltip:hover::after {
-    content: attr(data-tip); position: absolute; bottom: 130%; left: 50%;
-    transform: translateX(-50%); background: var(--card); border: 1px solid var(--border);
-    padding: 6px 10px; border-radius: 6px; font-size: 12px; white-space: nowrap; color: var(--text); z-index: 5;
-  }
+  .bar i { display: block; height: 100%; background: linear-gradient(90deg, #16a34a, #4ade80); border-radius: 3px; }
+  .empty { padding: 44px; text-align: center; color: var(--muted); font-size: 13px; line-height: 1.8; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; }
+  .bfoot { margin-top: 16px; color: var(--dim); font-size: 12px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
 
-  footer { margin-top: 22px; color: var(--muted); font-size: 12px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+  .modal-overlay {
+    position: fixed; inset: 0; z-index: 50;
+    background: rgba(5, 7, 10, 0.82);
+    display: none; align-items: center; justify-content: center;
+    backdrop-filter: blur(3px);
+  }
+  .modal-overlay.on { display: flex; }
+  .modal {
+    width: 460px; max-width: 92vw;
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 14px; padding: 30px 32px;
+    box-shadow: 0 30px 80px rgba(0,0,0,0.6);
+    animation: pop 0.35s cubic-bezier(0.2, 1.4, 0.4, 1);
+  }
+  @keyframes pop { from { transform: scale(0.85) translateY(20px); opacity: 0; } }
+  .modal .m-ico { font-size: 40px; margin-bottom: 14px; }
+  .modal h3 { font-size: 19px; font-weight: 800; line-height: 1.4; }
+  .modal p { margin-top: 12px; color: var(--muted); font-size: 13.5px; line-height: 1.7; }
+  .modal .m-go {
+    margin-top: 22px; width: 100%;
+    padding: 12px; border: none; border-radius: 9px;
+    background: var(--accent); color: #062b16;
+    font-size: 14px; font-weight: 800;
+  }
+  .modal .m-go:hover { filter: brightness(1.1); }
+  .modal .m-note { margin-top: 12px; text-align: center; font-size: 11px; color: var(--dim); }
+
+  .toast {
+    position: fixed; bottom: 22px; right: 22px; z-index: 40;
+    background: var(--panel); border: 1px solid var(--border);
+    border-left: 4px solid var(--accent);
+    border-radius: 10px; padding: 13px 18px;
+    font-size: 13px; max-width: 340px;
+    box-shadow: 0 14px 40px rgba(0,0,0,0.5);
+    display: none; animation: slidein 0.3s ease;
+  }
+  @keyframes slidein { from { transform: translateX(30px); opacity: 0; } }
+  .toast.on { display: block; }
+  .toast .t-title { font-weight: 700; margin-bottom: 3px; }
+  .toast .t-body { color: var(--muted); font-size: 12.5px; }
+
   a { color: var(--accent); text-decoration: none; }
   a:hover { text-decoration: underline; }
+
+  @media (max-width: 900px) {
+    .mail-list { width: 260px; }
+    .mail-view { padding: 20px 18px 40px; }
+  }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <h1>🥬 <span class="kimchi">kimchi</span> workshop</h1>
-    <span class="sub">fix the service. survive production. get ranked.</span>
-  </header>
 
-  <nav class="tabs">
-    <button class="tab active" data-pane="guide">Briefing</button>
-    <button class="tab" data-pane="board">Leaderboard</button>
+<header>
+  <div class="brand">
+    <span class="logo">🥬 <span class="k">kimchi</span> workshop</span>
+    <span class="tag">— the task-api incident</span>
+  </div>
+  <div class="spacer"></div>
+  <div class="handle-pill" id="handlePill">
+    <span class="dot"></span>
+    <input id="handleInput" placeholder="your github handle" autocomplete="off" spellcheck="false">
+  </div>
+  <button class="help-btn" id="helpBtn" title="what is this?">?</button>
+</header>
+
+<div class="layout">
+  <nav class="rail">
+    <button class="rail-item active" data-view="inbox"><span class="ico">📬</span>Inbox<span class="badge" id="unreadBadge" style="display:none">0</span></button>
+    <button class="rail-item" data-view="board"><span class="ico">🏆</span>Leaderboard</button>
+    <button class="rail-item" id="railRepo"><span class="ico">🗂️</span>Repo</button>
+    <div class="rail-bottom">
+      <button class="rail-item" id="railAbout"><span class="ico">❓</span>About</button>
+    </div>
   </nav>
 
-  <section class="pane active" id="pane-guide">
+  <div class="mail-list" id="mailList">
+    <div class="mail-list-header"><span>Briefings</span><span id="mailCount"></span></div>
+    <div id="mailCards"></div>
+  </div>
 
-    <div class="hero">
-      <span class="sev">SEV2 &middot; task-api &middot; 2026-10-22</span>
-      <p>
-        Yesterday the company task-tracker API 500'd its way through a
-        production incident. A hasty patch made it worse &mdash; new error
-        signatures, a hardcoded secret in the deployed config, and an
-        endpoint serving the whole table on every request. The team
-        rolled it back at 15:07 UTC.
-      </p>
-      <p>
-        <strong>You are the on-call engineer now.</strong> The repo you're
-        about to clone is the pre-patch state. Your job: get the service
-        back to production-ready, prove it, and submit &mdash; before the
-        CTO asks for the third time why this is still on fire.
-      </p>
+  <div class="reader" id="reader">
+    <div class="reader-empty" id="readerEmpty">
+      <div class="big">📥</div>
+      <div class="cap">No message selected</div>
     </div>
+  </div>
 
-    <h2><span class="n">01</span>Get the repo and go red</h2>
-    <div class="card">
-      <pre><span class="c"># the entry ticket &mdash; expect red</span>
-git clone https://github.com/castai/kimchi-workshop.git
-cd kimchi-workshop
-python3 -m venv .venv &amp;&amp; source .venv/bin/activate
-pip install -r requirements.txt
-python -m pytest tests/ -q</pre>
-      <p><strong>4 failed, 5 passed.</strong> That red is your starting
-      position. Turn it green. How you do it is the workshop.</p>
-      <div class="kbd-row">
-        <span class="step-pill"><b>full timeline</b> &mdash; PRODUCTION-INCIDENT.md in the repo</span>
-        <span class="step-pill"><b>the spec</b> &mdash; the docstrings, not the code</span>
+  <div class="board-wrap" id="boardWrap">
+    <div class="board-inner">
+      <div class="controls">
+        <div>
+          <label for="event">Event</label>
+          <select id="event"></select>
+        </div>
+        <div>
+          <label for="topn">Show</label>
+          <select id="topn">
+            <option value="10">Top 10</option>
+            <option value="20">Top 20</option>
+            <option value="50">Top 50</option>
+            <option value="all" selected>All</option>
+          </select>
+        </div>
+        <div>
+          <label for="search">Find participant</label>
+          <input type="search" id="search" placeholder="handle">
+        </div>
+        <div class="meta">
+          <div id="updated">loading…</div>
+          <div id="count"></div>
+        </div>
+      </div>
+      <table id="boardTable" style="display:none">
+        <thead>
+          <tr>
+            <th class="rank">#</th>
+            <th>Participant</th>
+            <th>PR</th>
+            <th>Tests</th>
+            <th>Cost</th>
+            <th>Points</th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+      <div class="empty" id="empty">
+        No accepted submissions yet for this event.<br><br>
+        Submissions are scored on their PR, ranked on accept, and the PR
+        is closed unmerged — the repo stays pristine for the next engineer.
+      </div>
+      <div class="bfoot">
+        <span>Points = tests×10 + review×50 + efficiency. Output first, cost second.</span>
+        <span>auto-refreshes every 60s</span>
       </div>
     </div>
+  </div>
+</div>
 
-    <h2><span class="n">02</span>Drive the agent, own the diff</h2>
-    <div class="card">
-      <p>This workshop exists to teach agent-assisted coding. Drive
-      <a href="https://github.com/getkimchi/kimchi">kimchi</a> at the
-      broken service, verify every line it produces, commit only what
-      you can defend in review.</p>
-      <pre><span class="c"># first time with kimchi?</span>
-curl -fsSL https://github.com/getkimchi/kimchi/releases/latest/download/install.sh | bash
-<span class="c"># or: brew install getkimchi/tap/kimchi</span>
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <div class="m-ico">📬</div>
+    <h3>You've got mail. Four of them.</h3>
+    <p>
+      The task-api service went down yesterday. The fix attempt made it worse.
+      The previous lead just handed the incident — and the company — to you.
+    </p>
+    <p>
+      Your colleagues left briefings in your inbox: what broke, where the
+      spec lives, how to submit, and how not to let the agent drive you.
+      Read them before you clone anything.
+    </p>
+    <button class="m-go" id="modalGo">Go to Inbox →</button>
+    <div class="m-note">This shows once. Your inbox is always in the left rail.</div>
+  </div>
+</div>
 
-<span class="c"># sign up at app.kimchi.dev (no card), or use a facilitator key</span>
-export KIMCHI_API_KEY=&lt;key&gt;
-
-<span class="c"># inside the repo &mdash; your spend gets attributed through this tag</span>
-kimchi
-/tags add attendee:&lt;your-handle&gt;</pre>
-      <p>Track your spend at
-      <a href="https://app.kimchi.dev/usage">app.kimchi.dev/usage</a> &mdash;
-      you will submit it later.</p>
-    </div>
-
-    <h2><span class="n">03</span>The rules</h2>
-    <div class="card">
-      <ol>
-        <li><strong>Fix the app, not the tests.</strong> Everything under
-          <code>tests/</code> is read-only. If a test looks wrong, look
-          again.</li>
-        <li><strong>The docstrings are the spec.</strong> Where code and
-          docstrings disagree, the docstring describes intended behavior.
-          Make the code honest.</li>
-        <li><strong>Small, verifiable changes.</strong> Re-run the suite
-          after every edit. A broken intermediate step costs you time,
-          not points.</li>
-        <li><strong>Green visible suite is the floor, not the
-          ceiling.</strong> Your PR is also scored by a verification
-          suite you cannot see &mdash; production will tell you about it
-          in the PR comments.</li>
-      </ol>
-    </div>
-
-    <h2><span class="n">04</span>Submit &mdash; and understand the lifecycle</h2>
-    <div class="card">
-      <ol>
-        <li>Fork the repo, push your work, open a PR titled
-          <code>[submission] &lt;your-handle&gt; - &lt;what you shipped&gt;</code>.</li>
-        <li>Fill the PR template block exactly:
-          <pre><span class="c"># in the PR body</span>
-attendee: &lt;your-handle&gt;
-event: &lt;event-code your facilitator announced&gt;
-cost_usd: &lt;session spend from app.kimchi.dev&gt;
-review_score:</pre>
-        </li>
-        <li>Attach your Kimchi <strong>usage CSV export</strong> to the PR
-          (from app.kimchi.dev/usage, filtered by
-          <code>attendee:&lt;handle&gt;</code>). No CSV, no leaderboard &mdash;
-          spend claims are verified.</li>
-      </ol>
-    </div>
-
-    <div class="card warn">
-      <p><strong>Your PR never merges &mdash; by design.</strong> It is a
-      scoring vessel, not a contribution to the repo. Scoring runs on
-      it, you get ranked, production tells its story in your PR's
-      comments, and then the PR is <strong>closed unmerged</strong>.
-      That keeps the seed repo identical for every participant after
-      you. Your score and your PR comments stay; the repo doesn't
-      change.</p>
-    </div>
-
-    <div class="card notice">
-      <p><strong>How a score becomes a rank:</strong> CI scores your PR
-      automatically (visible suite + hidden production scenario). A
-      facilitator reviews and labels it <code>accepted</code>. Within a
-      minute you appear on the <strong>Leaderboard</strong> tab up top
-      &mdash; event dropdown, top-N, search, 60-second refresh.</p>
-    </div>
-
-    <h2><span class="n">05</span>Scoring</h2>
-    <div class="card">
-      <pre>output     = tests_passed &times; 10 + (review_score / 100) &times; 50
-efficiency = &plusmn;20 based on your spend vs the budget
-points     = output + efficiency</pre>
-      <p>A cheap no-op always loses to real work. Production failures
-      cost you more than any spend ever will.</p>
-    </div>
-
-  </section>
-
-  <section class="pane" id="pane-board">
-    <div class="controls">
-      <div>
-        <label for="event">Event / workshop code</label>
-        <select id="event"></select>
-      </div>
-      <div>
-        <label for="topn">Show</label>
-        <select id="topn">
-          <option value="10">Top 10</option>
-          <option value="20">Top 20</option>
-          <option value="50">Top 50</option>
-          <option value="all" selected>All</option>
-        </select>
-      </div>
-      <div>
-        <label for="search">Find participant</label>
-        <input type="search" id="search" placeholder="handle or github login">
-      </div>
-      <div class="meta">
-        <div id="updated">loading&hellip;</div>
-        <div id="count"></div>
-      </div>
-    </div>
-
-    <table>
-      <thead>
-        <tr>
-          <th class="rank">#</th>
-          <th>Participant</th>
-          <th>PR</th>
-          <th class="tooltip" data-tip="tests passing in the submission PR">Tests</th>
-          <th class="tooltip" data-tip="self-reported spend from the console export, CSV verified">Cost</th>
-          <th class="tooltip" data-tip="output + efficiency">Points</th>
-        </tr>
-      </thead>
-      <tbody id="rows"></tbody>
-    </table>
-    <div class="empty" id="empty" style="display:none">
-      No accepted submissions yet for this event.<br><br>
-      Submissions are scored on their PR, ranked on accept, and the PR
-      is closed unmerged &mdash; the repo stays pristine for the next engineer.
-    </div>
-
-    <footer>
-      <span>Points = tests&times;10 + review&times;50 + efficiency. Output first, cost second.</span>
-      <span>auto-refreshes every 60s</span>
-    </footer>
-  </section>
+<div class="toast" id="toast">
+  <div class="t-title" id="toastTitle"></div>
+  <div class="t-body" id="toastBody"></div>
 </div>
 
 <script>
+"use strict";
+
+const REPO_URL = "https://github.com/castai/kimchi-workshop";
+const LS_HANDLE = "kimchi.handle";
+const LS_SEEN_MODAL = "kimchi.seenOnboarding.v1";
+const LS_READ = "kimchi.readEmails.v1";
+
+const MAIL = [];
+const readSet = new Set(JSON.parse(localStorage.getItem(LS_READ) || "[]"));
+let selectedId = null;
+
+/* ================= handle ================= */
+const handleInput = document.getElementById("handleInput");
+const handlePill = document.getElementById("handlePill");
+handleInput.value = localStorage.getItem(LS_HANDLE) || "";
+function syncPill() {
+  handlePill.classList.toggle("active", !!handleInput.value.trim());
+}
+syncPill();
+let personalLoadedFor = null;
+handleInput.addEventListener("change", () => {
+  localStorage.setItem(LS_HANDLE, handleInput.value.trim());
+  syncPill();
+  maybeLoadPersonal(true);
+  renderBoard();
+});
+handleInput.addEventListener("keydown", e => {
+  if (e.key === "Enter") handleInput.blur();
+});
+
+/* ================= email data ================= */
+function initials(name) {
+  return name.split(/[\s-]+/).map(w => w[0]).join("").slice(0, 3).toUpperCase();
+}
+function snippet(body) {
+  return (body || "").replace(/\n+/g, " ").slice(0, 90) + "…";
+}
+function esc(s) {
+  return String(s).replace(/[&<>"']/g,
+    c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+
+async function loadStaticBriefings() {
+  try {
+    const res = await fetch("briefings/welcome.json?t=" + Date.now(), {cache: "no-store"});
+    const data = await res.json();
+    for (const e of data.emails) {
+      MAIL.push({ ...e, category: "briefing", snippet: snippet(e.body) });
+    }
+  } catch (e) { /* first deploy race — retry on next tick */ }
+  renderList();
+}
+
+async function maybeLoadPersonal(force) {
+  const handle = handleInput.value.trim();
+  if (!handle) return;
+  if (!force && personalLoadedFor === handle) return;
+  personalLoadedFor = handle;
+  try {
+    const res = await fetch(`personal/${encodeURIComponent(handle)}.json?t=` + Date.now(), {cache: "no-store"});
+    if (!res.ok) return;
+    const data = await res.json();
+    const have = new Set(MAIL.map(m => m.id));
+    let added = 0;
+    for (const e of (data.emails || [])) {
+      if (have.has(e.id)) continue;
+      MAIL.push({
+        ...e,
+        category: e.category || "personal",
+        snippet: snippet(e.body || ""),
+        personal: true,
+      });
+      added++;
+    }
+    if (added) {
+      sortMail();
+      renderList();
+      toast("📬 New mail", `${added} message${added > 1 ? "s" : ""} arrived for @${esc(handle)}.`);
+    }
+  } catch (e) { /* no personal inbox yet */ }
+}
+
+function sortMail() {
+  MAIL.sort((a, b) => String(a.timestamp).localeCompare(String(b.timestamp)));
+}
+
+/* ================= list ================= */
+function renderList() {
+  const box = document.getElementById("mailCards");
+  if (!MAIL.length) {
+    box.innerHTML = `<div class="list-empty">Inbox empty.<br>Briefings failed to load — refresh in a moment.</div>`;
+    document.getElementById("mailCount").textContent = "";
+    return;
+  }
+  document.getElementById("mailCount").textContent = `${MAIL.length}`;
+  box.innerHTML = MAIL.map(m => {
+    const unread = !readSet.has(m.id);
+    return `
+      <div class="mail-card ${unread ? "unread" : ""} ${selectedId === m.id ? "selected" : ""}" data-id="${esc(m.id)}">
+        ${unread ? '<span class="unread-dot"></span>' : ""}
+        <div class="avatar" style="background:${esc(m.from.bg || "#374151")}">${esc(initials(m.from.name))}</div>
+        <div class="mm">
+          <div class="row1">
+            <span class="sender">${esc(m.from.name)}</span>
+            <span class="time">${esc(shortTime(m.timestamp))}</span>
+          </div>
+          <div class="subject">${esc(m.subject)}</div>
+          <div class="snippet">${esc(m.snippet)}</div>
+          <span class="cat">${esc(m.category)}</span>
+        </div>
+      </div>`;
+  }).join("");
+  box.querySelectorAll(".mail-card").forEach(c => {
+    c.addEventListener("click", () => openMail(c.dataset.id));
+  });
+  updateUnreadBadge();
+}
+function shortTime(ts) {
+  const m = String(ts).match(/(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return ts;
+  const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  return `${months[+m[2]-1]} ${+m[3]}`;
+}
+function updateUnreadBadge() {
+  const unread = MAIL.filter(m => !readSet.has(m.id)).length;
+  const b = document.getElementById("unreadBadge");
+  b.style.display = unread ? "flex" : "none";
+  b.textContent = unread;
+  document.title = (unread ? `(${unread}) ` : "") + "Kimchi Workshop — Inbox";
+}
+
+/* ================= reader ================= */
+function openMail(id) {
+  const m = MAIL.find(x => x.id === id);
+  if (!m) return;
+  selectedId = id;
+  readSet.add(id);
+  localStorage.setItem(LS_READ, JSON.stringify([...readSet]));
+  renderList();
+  showView("inbox");
+
+  document.getElementById("reader").innerHTML = `
+    <div class="mail-view">
+      <div class="subject-big">${esc(m.subject)}</div>
+      <div class="catline"><span class="catpill">${esc(m.category)}</span></div>
+      <div class="mail-head">
+        <div class="avatar" style="background:${esc(m.from.bg || "#374151")}">${esc(initials(m.from.name))}</div>
+        <div class="who">
+          <div class="name">${esc(m.from.name)}</div>
+          <div class="role">${esc(m.from.role || "")}</div>
+        </div>
+        <div class="when">${esc(m.timestamp)}</div>
+      </div>
+      <div class="mail-body">${renderBody(m.body)}</div>
+      ${actionButtons(m)}
+    </div>`;
+}
+
+function renderBody(body) {
+  let t = esc(body || "");
+  t = t.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+  return t;
+}
+
+function actionButtons(m) {
+  const btns = [];
+  if (m.id === "incident-brief") {
+    btns.push(`<a class="btn primary" href="${REPO_URL}" target="_blank" rel="noopener">🗂️ Open the repo</a>`);
+    btns.push(`<a class="btn" href="${REPO_URL}/blob/challenge/PRODUCTION-INCIDENT.md" target="_blank" rel="noopener">📄 Full incident report</a>`);
+  }
+  if (m.id === "submission-lifecycle") {
+    btns.push(`<a class="btn primary" href="${REPO_URL}/fork" target="_blank" rel="noopener">🍴 Fork and start</a>`);
+    btns.push(`<a class="btn" href="https://app.kimchi.dev/usage" target="_blank" rel="noopener">💳 Usage console</a>`);
+  }
+  if (m.category === "production" && m.pr_url) {
+    btns.push(`<a class="btn primary" href="${esc(m.pr_url)}" target="_blank" rel="noopener">📊 Open your PR</a>`);
+  }
+  if (m.category === "score") {
+    btns.push(`<button class="btn primary" onclick="document.querySelector('[data-view=board]').click()">🏆 See leaderboard</button>`);
+  }
+  if (!btns.length) return "";
+  return `<div class="mail-actions">${btns.join("")}</div>`;
+}
+
+/* ================= view switch ================= */
+const railItems = document.querySelectorAll(".rail-item[data-view]");
+railItems.forEach(b => b.addEventListener("click", () => {
+  railItems.forEach(x => x.classList.remove("active"));
+  b.classList.add("active");
+  showView(b.dataset.view);
+}));
+function showView(view) {
+  const inbox = view === "inbox";
+  document.getElementById("mailList").style.display = inbox ? "" : "none";
+  document.getElementById("reader").style.display = inbox ? "" : "none";
+  document.getElementById("boardWrap").classList.toggle("on", !inbox);
+  if (!inbox && !window.__board) loadBoard();
+}
+document.getElementById("railRepo").addEventListener("click", () => window.open(REPO_URL, "_blank"));
+document.getElementById("railAbout").addEventListener("click", () => {
+  document.getElementById("modal").classList.add("on");
+});
+document.getElementById("helpBtn").addEventListener("click", () => {
+  document.getElementById("modal").classList.add("on");
+});
+
+/* ================= modal ================= */
+document.getElementById("modalGo").addEventListener("click", () => {
+  document.getElementById("modal").classList.remove("on");
+  localStorage.setItem(LS_SEEN_MODAL, "1");
+});
+if (!localStorage.getItem(LS_SEEN_MODAL)) {
+  setTimeout(() => document.getElementById("modal").classList.add("on"), 600);
+}
+
+/* ================= toast ================= */
+let toastTimer = null;
+function toast(title, body) {
+  document.getElementById("toastTitle").textContent = title;
+  document.getElementById("toastBody").innerHTML = body;
+  const t = document.getElementById("toast");
+  t.classList.add("on");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove("on"), 5000);
+}
+
+/* ================= leaderboard ================= */
 const CONFIG_URL = "config.json";
 const BOARD_URL = "leaderboard.json";
 
-/* tabs */
-document.querySelectorAll(".tab").forEach(t => {
-  t.addEventListener("click", () => {
-    document.querySelectorAll(".tab").forEach(x => x.classList.remove("active"));
-    document.querySelectorAll(".pane").forEach(x => x.classList.remove("active"));
-    t.classList.add("active");
-    document.getElementById("pane-" + t.dataset.pane).classList.add("active");
-  });
-});
-// deep link: #board opens leaderboard tab
-if (location.hash === "#board") {
-  document.querySelector('.tab[data-pane="board"]').click();
-}
-
-async function load() {
+async function loadBoard() {
   let board;
   try {
-    // cache-busting query: the GitHub Pages CDN caches JSON for ~10 min,
-    // a unique URL per fetch bypasses the edge cache so updates land fast
     const bust = "?t=" + Date.now();
     const [configRes, boardRes] = await Promise.all([
       fetch(CONFIG_URL + bust, {cache: "no-store"}),
@@ -350,10 +618,9 @@ async function load() {
     ]);
     board = await boardRes.json();
     const config = configRes.ok ? await configRes.json() : {};
-    board.repo = config.repo || "";
     if (config.default_event) board.default_event = config.default_event;
   } catch (e) {
-    var el = document.getElementById("updated");
+    const el = document.getElementById("updated");
     if (el) el.textContent = "failed to load leaderboard.json";
     return;
   }
@@ -368,15 +635,16 @@ async function load() {
     .join("");
   if (keep && names.includes(keep)) evSel.value = keep;
 
-  render();
+  renderBoard();
 }
 
-function render() {
+function renderBoard() {
   const board = window.__board;
   if (!board) return;
   const ev = document.getElementById("event").value;
   const topn = document.getElementById("topn").value;
   const q = document.getElementById("search").value.trim().toLowerCase();
+  const me = handleInput.value.trim().toLowerCase();
 
   let rows = (board.events[ev] || {}).rows || [];
   if (q) rows = rows.filter(r =>
@@ -386,8 +654,10 @@ function render() {
 
   const medals = {1: "🥇", 2: "🥈", 3: "🥉"};
   const max = Math.max(...rows.map(r => r.points || 0), 1);
-  document.getElementById("rows").innerHTML = rows.map(r => `
-    <tr>
+  document.getElementById("rows").innerHTML = rows.map(r => {
+    const isMe = me && ((r.github || "").toLowerCase() === me || (r.attendee || "").toLowerCase() === me);
+    return `
+    <tr class="${isMe ? "me" : ""}">
       <td class="rank rank-${r.rank <= 3 ? r.rank : ""}">
         <span class="medal">${medals[r.rank] || ""}</span>${r.rank}
       </td>
@@ -395,7 +665,7 @@ function render() {
         <div class="handle">${esc(r.attendee || "?")}</div>
         <div class="gh">${r.github ? "@" + esc(r.github) : ""}</div>
       </td>
-      <td>${r.pr_url ? `<a href="${esc(r.pr_url)}">#${r.pr}</a>` : (r.pr || "")}</td>
+      <td>${r.pr_url ? `<a href="${esc(r.pr_url)}" target="_blank" rel="noopener">#${r.pr}</a>` : (r.pr || "")}</td>
       <td>
         <div>${r.tests_passed || 0} <span class="gh">/ ${testedCount(r)}</span></div>
         <div class="bar"><i style="width:${(r.tests_passed || 0) / testedCount(r) * 100}%"></i></div>
@@ -404,10 +674,13 @@ function render() {
       <td class="pts">${(r.points || 0).toFixed(2)}
         <div class="bar"><i style="width:${(r.points || 0) / max * 100}%"></i></div>
       </td>
-    </tr>`).join("");
+    </tr>`;
+  }).join("");
 
   const total = ((board.events[ev] || {}).rows || []).length;
-  document.getElementById("empty").style.display = rows.length ? "none" : "block";
+  const hasRows = rows.length > 0;
+  document.getElementById("empty").style.display = hasRows ? "none" : "block";
+  document.getElementById("boardTable").style.display = hasRows ? "" : "none";
   document.getElementById("count").textContent = total ? total + " participants" : "";
   document.getElementById("updated").textContent =
     "updated " + new Date(board.generated_at).toLocaleString();
@@ -416,16 +689,15 @@ function render() {
 function testedCount(r) {
   return (r.tests_passed || 0) + (r.tests_failed || 0) || 1;
 }
-function esc(s) {
-  return String(s).replace(/[&<>"']/g,
-    c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-}
 
-document.getElementById("event").addEventListener("change", render);
-document.getElementById("topn").addEventListener("change", render);
-document.getElementById("search").addEventListener("input", render);
-load();
-setInterval(load, 60000);
+document.getElementById("event").addEventListener("change", renderBoard);
+document.getElementById("topn").addEventListener("change", renderBoard);
+document.getElementById("search").addEventListener("input", renderBoard);
+
+/* ================= boot ================= */
+loadStaticBriefings();
+maybeLoadPersonal(false);
+setInterval(() => { maybeLoadPersonal(true); if (window.__board) loadBoard(); }, 60000);
 </script>
 </body>
 </html>
