@@ -21,6 +21,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          # records/, leaderboard.json, and the docs/ UI all live on
+          # gh-pages. challenge is the source of truth for code; the
+          # leaderboard lives on the published site branch.
 
       - uses: actions/setup-python@v5
         with:
