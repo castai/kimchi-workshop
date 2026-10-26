@@ -15,7 +15,9 @@ permissions:
 
 jobs:
   leaderboard:
-    if: github.event.label.name == 'accepted'
+    if: |
+      github.event.label.name == 'accepted' &&
+      startsWith(github.event.pull_request.title, '[submission]')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -139,17 +141,23 @@ jobs:
           rank = me.get("rank") if me else "?"
           total = len(ranked)
           body = (
+              "Hi —\n"
+              "\n"
               "Accepted. The facilitator has reviewed the PR, the suite, and the production "
-              "story. Your submission is on the board.\n\n"
-              "Points: " + str(row.get("points", 0)) + "\n"
-              "Rank in " + str(event) + ": #" + str(rank) + " of " + str(total) + "\n"
-              "Visible checks: " + str(row.get("tests_passed", 0)) + " passed\n"
-              "Your spend: $" + "%.2f" % float(row.get("cost_usd", 0) or 0) + "\n\n"
+              "story. Your submission is on the board.\n"
+              "\n"
+              "  Points: " + str(row.get("points", 0)) + "\n"
+              "  Rank in " + str(event) + ": #" + str(rank) + " of " + str(total) + "\n"
+              "  Visible checks: " + str(row.get("tests_passed", 0)) + " passed\n"
+              "  Your spend: $" + "%.2f" % float(row.get("cost_usd", 0) or 0) + "\n"
+              "\n"
               "The PR stays open in the queue for audit, but the leaderboard row is permanent. "
               "If you want to see the production story that got you here, check your inbox — "
-              "Marcus sent it already.\n\n"
-              "Now go help the next person. The company is in good hands.\n\n"
-              "— Priya\n"
+              "Alex sent it already.\n"
+              "\n"
+              "Now go help the next person. The company is in good hands.\n"
+              "\n"
+              "— Sam\n"
           )
           with open("acceptance_body.txt", "w") as f:
               f.write(body)
@@ -165,10 +173,10 @@ jobs:
             --site-dir . \
             --handle "$ATTENDEE" \
             --id "accepted-pr-${PR_NUMBER}" \
-            --from-name "Priya Nakamura-Singh" \
+            --from-name "Sam Carter" \
             --from-role "VP Engineering" \
             --from-bg "#b3261e" \
-            --subject "Submission accepted — you ranked" \
+            --subject "Submission accepted - you ranked" \
             --category score \
             --body-file ../acceptance_body.txt \
             --pr-url "$PR_URL"

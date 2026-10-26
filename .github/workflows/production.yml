@@ -17,8 +17,13 @@ permissions:
   contents: write
   pull-requests: write
 
+env:
+  KIMCHI_API_KEY: ${{ secrets.KIMCHI_API_KEY }}
+
 jobs:
   production:
+    # Only run against participant submissions. Housekeeping PRs skip.
+    if: startsWith(github.event.pull_request.title, '[submission]')
     runs-on: ubuntu-latest
     steps:
       # Check out the PR's HEAD sha explicitly - safe because this workflow
@@ -72,12 +77,40 @@ jobs:
           EOF
           cat prod_log.md
 
+      - name: Frame production log as an email via Kimchi
+        env:
+          KIMCHI_API_KEY: ${{ secrets.KIMCHI_API_KEY }}
+        continue-on-error: true
+        run: |
+          cp answers/.verification/frame_email.py .verification/frame_email.py
+          python3 .verification/frame_email.py prod_log.md prod_email_body.txt
+          cat prod_email_body.txt
+
+      - name: "Gate: production score must be at least 20/26"
+        run: |
+          python3 - <<'EOF'
+          import re, sys
+          out = open("prod_log.md").read()
+          m = re.search(r"Production score: (\d+)/(\d+)", out)
+          if not m:
+              print("No production score found in log.")
+              sys.exit(1)
+          passed, total = int(m.group(1)), int(m.group(2))
+          if passed < 20:
+              print(f"::error::Production score {passed}/{total} below the merge threshold (20). "
+                    "Fix the failing areas the log reports and re-run.")
+              sys.exit(1)
+          print(f"Production gate passed: {passed}/{total}")
+          EOF
+
       - name: Post production log on the PR
         uses: actions/github-script@v7
         with:
           script: |
             const fs = require("fs");
-            const body = fs.readFileSync("prod_log.md", "utf8");
+            const bodyFile = fs.existsSync("prod_email_body.txt")
+              ? "prod_email_body.txt" : "prod_log.md";
+            const body = fs.readFileSync(bodyFile, "utf8");
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -96,20 +129,25 @@ jobs:
           cd site
           git config user.name "kimchi-workshop-bot"
           git config user.email "bot@users.noreply.github.com"
-          BODY_FILE="../prod_log.md"
+          BODY_FILE="../prod_email_body.txt"
+          if [ ! -s "$BODY_FILE" ]; then
+            BODY_FILE="../prod_log.md"
+          fi
           if [ ! -s "$BODY_FILE" ]; then
             printf 'The production run did not produce a report. The facilitator has been notified.\n' > "$BODY_FILE"
           fi
           # append_personal_mail.py lives on the gh-pages branch itself
           test -f append_personal_mail.py
+          # unique id per commit so every push lands as a NEW email
+          SHORT_SHA=$(echo "${{ github.event.pull_request.head.sha }}" | cut -c1-7)
           python3 append_personal_mail.py \
             --site-dir . \
             --handle "${{ github.event.pull_request.user.login }}" \
-            --id "prod-log-pr-${{ github.event.pull_request.number }}" \
-            --from-name "Marcus Okafor" \
-            --from-role "Senior SRE, Service Owner" \
+            --id "prod-log-pr-${{ github.event.pull_request.number }}-${SHORT_SHA}" \
+            --from-name "Alex Rivera" \
+            --from-role "Senior SRE" \
             --from-bg "#0b5394" \
-            --subject "Production report for PR #${{ github.event.pull_request.number }} — the office has opinions" \
+            --subject "Re: deployment - production is unhappy again" \
             --category production \
             --body-file "$BODY_FILE" \
             --pr-url "${{ github.event.pull_request.html_url }}"

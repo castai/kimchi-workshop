@@ -543,11 +543,32 @@ function renderList() {
   });
   updateUnreadBadge();
 }
-function shortTime(ts) {
-  const m = String(ts).match(/(\d{4})-(\d{2})-(\d{2})/);
+function localTime(ts) {
+  const m = String(ts).match(/(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})/);
   if (!m) return ts;
-  const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-  return `${months[+m[2]-1]} ${+m[3]}`;
+  const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]));
+  if (isNaN(d)) return ts;
+  return d.toLocaleString(undefined, {
+    year: "numeric", month: "short", day: "numeric",
+    hour: "2-digit", minute: "2-digit",
+  });
+}
+function shortTime(ts) {
+  // timestamps arrive as "2026-10-26 11:47 UTC" or ISO — render relative,
+  // in the reader's local timezone, like a real mail client
+  const m = String(ts).match(/(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})/);
+  if (!m) return ts;
+  const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]));
+  if (isNaN(d)) return ts;
+  const now = new Date();
+  const mins = Math.floor((now - d) / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return mins + "m ago";
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return hours + "h ago";
+  const days = Math.floor(hours / 24);
+  if (days < 7) return days + "d ago";
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 function updateUnreadBadge() {
   const unread = MAIL.filter(m => !readSet.has(m.id)).length;
@@ -577,7 +598,7 @@ function openMail(id) {
           <div class="name">${esc(m.from.name)}</div>
           <div class="role">${esc(m.from.role || "")}</div>
         </div>
-        <div class="when">${esc(m.timestamp)}</div>
+        <div class="when">${esc(localTime(m.timestamp))}</div>
       </div>
       <div class="mail-body">${renderBody(m.body)}</div>
       ${actionButtons(m)}
@@ -586,7 +607,18 @@ function openMail(id) {
 
 function renderBody(body) {
   let t = esc(body || "");
-  t = t.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+  // images (gifs etc.) — markdown ![alt](url)
+  t = t.replace(/!\[([^\]]*)\]\((https?:\/\/[^)]+)\)/g,
+    '<img alt="$1" src="$2" style="max-width:100%;border-radius:8px;margin:10px 0;display:block">');
+  // H2 / H3 headers inline since emails come with markdown from the workflow
+  t = t.replace(/^### (.+)$/gm, '<div style="font-size:15px;font-weight:700;margin:14px 0 6px;color:var(--text)">$1</div>');
+  t = t.replace(/^## (.+)$/gm, '<div style="font-size:17px;font-weight:800;margin:16px 0 8px;color:var(--text)">$1</div>');
+  // bold
+  t = t.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  // inline code
+  t = t.replace(/`([^`]+)`/g, '<code style="background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:1px 5px;font-size:12px">$1</code>');
+  // unordered-list bullets: lines starting with "- " get a disc
+  t = t.replace(/^- (.+)$/gm, '<div style="padding-left:14px;margin:2px 0">• $1</div>');
   return t;
 }
 
