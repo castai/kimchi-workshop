@@ -4,8 +4,13 @@ name: Production scenario
 # The hidden suite is fetched from the private kimchi-workshop-answers
 # repo - participants never see the tests, only the production log
 # rendered from their results.
+#
+# pull_request_target: runs in the context of the BASE repository so it
+# can read the ANSWERS_REPO_PAT secret. Fork PRs cannot see secrets on
+# standard `pull_request` events; this event is the documented pattern
+# for workflows that need secrets AND should run for external contributors.
 on:
-  pull_request:
+  pull_request_target:
     types: [opened, synchronize, reopened]
 
 permissions:
