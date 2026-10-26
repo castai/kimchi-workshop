@@ -46,6 +46,34 @@
     display: flex; align-items: center; gap: 8px;
     background: var(--panel2); border: 1px solid var(--border);
     border-radius: 999px; padding: 5px 12px;
+    position: relative; transition: border-color 0.3s, box-shadow 0.3s;
+  }
+  .handle-pill.needs-handle {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-dim);
+    animation: pulse-ring 2s ease-in-out infinite;
+  }
+  @keyframes pulse-ring {
+    0%, 100% { box-shadow: 0 0 0 3px var(--accent-dim); }
+    50% { box-shadow: 0 0 0 6px rgba(74, 222, 128, 0.28); }
+  }
+  .handle-cue {
+    position: absolute; top: calc(100% + 10px); right: 0;
+    background: var(--accent); color: #062b16;
+    font-size: 11.5px; font-weight: 700;
+    padding: 6px 12px; border-radius: 8px;
+    white-space: nowrap;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    animation: bob 1.6s ease-in-out infinite;
+    z-index: 30;
+  }
+  .handle-cue::before {
+    content: ""; position: absolute; bottom: 100%; right: 26px;
+    border: 6px solid transparent; border-bottom-color: var(--accent);
+  }
+  @keyframes bob {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-4px); }
   }
   .handle-pill input {
     background: transparent; border: none; outline: none;
@@ -277,6 +305,7 @@
   <div class="handle-pill" id="handlePill">
     <span class="dot"></span>
     <input id="handleInput" placeholder="your github handle" autocomplete="off" spellcheck="false">
+    <div class="handle-cue" id="handleCue" style="display:none">⬆ put your GitHub handle here to get your mail</div>
   </div>
   <button class="help-btn" id="helpBtn" title="what is this?">?</button>
 </header>
@@ -300,6 +329,7 @@
     <div class="reader-empty" id="readerEmpty">
       <div class="big">📥</div>
       <div class="cap">No message selected</div>
+      <div class="cap" style="font-size:12px">New here? Start with the first briefing, top of the list on the left.<br>Then set your GitHub handle top-right so your personal mail finds you.</div>
     </div>
   </div>
 
@@ -392,9 +422,14 @@ let selectedId = null;
 /* ================= handle ================= */
 const handleInput = document.getElementById("handleInput");
 const handlePill = document.getElementById("handlePill");
+const handleCue = document.getElementById("handleCue");
 handleInput.value = localStorage.getItem(LS_HANDLE) || "";
 function syncPill() {
-  handlePill.classList.toggle("active", !!handleInput.value.trim());
+  const has = !!handleInput.value.trim();
+  handlePill.classList.toggle("active", has);
+  const needsCue = !has && localStorage.getItem(LS_SEEN_MODAL);
+  handlePill.classList.toggle("needs-handle", needsCue);
+  handleCue.style.display = needsCue ? "block" : "none";
 }
 syncPill();
 let personalLoadedFor = null;
@@ -429,6 +464,11 @@ async function loadStaticBriefings() {
     }
   } catch (e) { /* first deploy race — retry on next tick */ }
   renderList();
+  // if the user dismissed onboarding before briefings arrived, open the
+  // first one now so nobody sits on the empty pane
+  if (localStorage.getItem(LS_SEEN_MODAL) && !selectedId && MAIL.length) {
+    openMail(MAIL[0].id);
+  }
 }
 
 async function maybeLoadPersonal(force) {
@@ -558,8 +598,32 @@ function actionButtons(m) {
   if (m.category === "score") {
     btns.push(`<button class="btn primary" onclick="document.querySelector('[data-view=board]').click()">🏆 See leaderboard</button>`);
   }
-  if (!btns.length) return "";
-  return `<div class="mail-actions">${btns.join("")}</div>`;
+  const out = [];
+  if (btns.length) out.push(`<div class="mail-actions">${btns.join("")}</div>`);
+  const next = nextStepFor(m);
+  if (next) {
+    out.push(`<div style="margin-top:18px;padding:12px 16px;border:1px dashed var(--border);border-radius:10px;font-size:12.5px;color:var(--muted)">
+      <span style="color:var(--accent);font-weight:700">→ next:</span> ${next}
+    </div>`);
+  }
+  return out.join("");
+}
+
+// ordered briefing ids: incident -> spec -> submit -> agent-craft -> (then fork)
+const FLOW_ORDER = ["incident-brief", "spec-docstrings", "submission-lifecycle", "kimchi-cadence"];
+function nextStepFor(m) {
+  if (m.personal || m.category === "production" || m.category === "score") {
+    if (m.category === "score") return null; // finished state
+    return "Fix what production flagged, push to your branch — CI re-runs automatically. Then set nothing; your next mail arrives here when the story updates.";
+  }
+  const i = FLOW_ORDER.indexOf(m.id);
+  if (i === -1) return null;
+  if (i < FLOW_ORDER.length - 1) {
+    const n = MAIL.find(x => x.id === FLOW_ORDER[i + 1]);
+    return n ? `read <a href="javascript:void(0)" onclick="openMail('${n.id}')">${esc(n.subject)}</a>${i + 1 < FLOW_ORDER.length - 1 ? "" : " (last one before you start)"}` : null;
+  }
+  // last briefing: point at the fork
+  return `set your GitHub handle top-right if you haven't, then <a href="${REPO_URL}/fork" target="_blank" rel="noopener">fork the repo</a> and get to work.`;
 }
 
 /* ================= view switch ================= */
@@ -588,6 +652,9 @@ document.getElementById("helpBtn").addEventListener("click", () => {
 document.getElementById("modalGo").addEventListener("click", () => {
   document.getElementById("modal").classList.remove("on");
   localStorage.setItem(LS_SEEN_MODAL, "1");
+  syncPill();
+  // guide straight into the first briefing so nobody lands on an empty pane
+  if (MAIL.length && !selectedId) openMail(MAIL[0].id);
 });
 if (!localStorage.getItem(LS_SEEN_MODAL)) {
   setTimeout(() => document.getElementById("modal").classList.add("on"), 600);
