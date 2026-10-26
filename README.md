@@ -55,7 +55,7 @@ export KIMCHI_API_KEY=<key>    # add to ~/.bashrc or ~/.zshrc - env keys don't p
 **3. Clone and set up**
 
 ```bash
-git clone https://github.com/kunalworldwide/kimchi-workshop.git
+git clone https://github.com/castai/kimchi-workshop.git
 cd kimchi-workshop
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
@@ -128,7 +128,7 @@ points     = output + efficiency
 
 ### 📊 The live board
 
-Every accepted submission lands on the [live workshop leaderboard](https://kunaldas.net/kimchi-workshop/) - event dropdown (run a
+Every accepted submission lands on the [live workshop leaderboard](https://castai.github.io/kimchi-workshop/) - event dropdown (run a
 whole series off one repo), top-10/20/50 selector, participant search,
 60-second auto-refresh. Facilitators: the `accepted` label on a PR is the
 whole evaluation action.
