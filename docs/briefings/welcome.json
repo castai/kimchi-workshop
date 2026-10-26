@@ -2,48 +2,59 @@
   "version": 1,
   "emails": [
     {
-      "id": "incident-brief",
+      "id": "start-here",
       "from": {
-        "name": "Priya Nakamura-Singh",
-        "role": "VP Engineering, Outgoing On-Call",
+        "name": "Sam Carter",
+        "role": "VP Engineering",
         "bg": "#b3261e"
       },
-      "subject": "You're the technical lead now. Good luck.",
+      "subject": "Start here: reclaiming task-api",
+      "timestamp": "2026-10-22 16:10 UTC",
+      "body": "You already know the headline. Task-api rolled back at 15:07 UTC, I handed the keys to you at 16:00, and the repo you're about to clone is the pre-patch state. This is the *what now* email — the practical moves for your first hour.\n\n**1. Get the repo.**\n\n```bash\ngit clone https://github.com/castai/kimchi-workshop.git\ncd kimchi-workshop\n```\n\n**2. Get a clean environment.**\n\n```bash\npython3 -m venv .venv && source .venv/bin/activate\npip install -r requirements.txt\n```\n\n**3. Run the tests.**\n\n```bash\npython -m pytest tests/ -q\n```\n\nExpected output: `4 failed, 5 passed`.\n\nThat red is your starting position. The five green tests are the parts of the contract that the rollback *did* preserve. The four red are where the hot-patch broke the spec.\n\n**4. Set your identity.** Inside the repo, run `kimchi` and when it asks to trust the project, say yes. Then `/tags add attendee:<your-github-handle>`. This is how your spend gets attributed when the leaderboard scores you.\n\n**5. Read the incident report.** Before you change a line of code: `PRODUCTION-INCIDENT.md` in the repo root. It explains what the service is *supposed* to do and why the previous patcher failed.\n\nThen — and only then — open your agent. Treat it as a lever, not a driver.\n\nIf you get stuck, read email #3 (Alex on the spec). If you get to submission, read email #4 (Jordan on the pipeline). Everything else is noise.\n\n— Sam"
+    },
+    {
+      "id": "incident-brief",
+      "from": {
+        "name": "Sam Carter",
+        "role": "VP Engineering",
+        "bg": "#b3261e"
+      },
+      "subject": "What actually happened (read once, remember)",
       "timestamp": "2026-10-22 16:03 UTC",
-      "body": "I just handed leadership of task-api to you. It is not a reward.\n\nYesterday the service 500'd through what started as a smallish incident and turned into three separate anomalies by the afternoon. A quick patch went out without a full review. It passed 5 of 9 tests. It did not survive contact with production.\n\nWe rolled it back at 15:07 UTC, and the repo you are going to clone is the pre-patch state. CLEAN. Uncontaminated by the fix attempt. That is the gift and the burden.\n\nWhat I need from you:\n\n1. Bring the service back to the behavior the docstrings describe.\n2. Do not touch anything under tests/. The suite is load-bearing.\n3. Prove it. The CI will tell you if you've done it, and production will tell you if you've REALLY done it.\n\nThe post-mortem is clear about one thing: this was not one bug. It was a chain of small assumptions that each looked harmless in isolation. Title is just a string. Priority is just an int. The store filters anyway. We can hardcode this for the demo.\n\nYou are not patching a service. You are fixing a posture.\n\nClone. Go red. Turn it green. Ship it back to me.\n\n— Priya Nakamura-Singh, VP Engineering"
+      "body": "Recording what we know. Yesterday's incident was a reproduction of exactly the kind of bug that happens when pressure beats process. At 09:14 UTC, task-api started 500ing on POST /tasks. The on-call engineer paged the author, a quick patch was merged without full review, it passed 5 of 9 checks, and it went to prod at 10:22 UTC.\n\nBy 14:00 UTC we had three new anomalies:\n\n- Error rate still elevated on POST /tasks, ~3% of calls\n- A hardcoded `sk-` key was found in the deployed config artifact\n- GET /tasks started returning the full table on every request, p99 to 800 ms\n\nThe service was rolled back at 15:07 UTC. You now own the recovery.\n\nThe artifact you're being handed is the deployment that was running *before* the hasty patch was merged. It passes 5 of 9 tests in its current state. Your job is to make it pass 9 of 9 — and survive the production scenario, which I am told will be *unpleasant* if you skip the verification step.\n\nThis is not about preventing the same logic hole from appearing again. It is about *posture*. Read Alex's email (coming up) for the spec details. The rules are at the end of this thread.\n\n— Sam"
     },
     {
       "id": "spec-docstrings",
       "from": {
-        "name": "Marcus Okafor",
-        "role": "Senior SRE, Service Owner",
+        "name": "Alex Rivera",
+        "role": "Senior SRE",
         "bg": "#0b5394"
       },
-      "subject": "Where the spec actually lives (do not skip this)",
+      "subject": "The spec is the docstrings. That's it.",
       "timestamp": "2026-10-22 17:20 UTC",
-      "body": "Priya asked me to write down the thing everyone in the post-mortem agreed on and nobody wrote down.\n\nThe infrastructure in this service is a fiction generator. Same data files, same cache layer, same GC cron, same sync logic. What changed between \"this is fine\" and \"why is the table 40MB\" was not data. It was assumption creep.\n\nThe spec is the docstrings. That's it.\n\nEach module documents the policy it was supposed to enforce. The drift happened because the hot-patch treated the code as the only truth. It wasn't. The docs are the negotiated contract between the original author and the service.\n\nSo when your agent gives you a diff and it looks plausible, check the docstring first. Not the PR comments. Not the Slack thread. The docstring.\n\nOne warning: the service's error handlers exist and are correct. They are just not wired. That's not a bug you fix by writing new handlers. That's a wiring problem.\n\nSecrets do not belong in source. The config knows this. The code does not.\n\nGood luck. You are going to need it.\n\n— Marcus"
+      "body": "Sam asked me to put in writing the thing the post-mortem agreed on.\n\nThe drift happened because the hot-patch treated the code as the only source of truth. It wasn't. Each module in this service documents the policy it was supposed to enforce. The docstrings are the contract between the original author and the service.\n\nSo when your agent generates a diff that looks plausible, check the docstring first. Not the PR comments. Not the Slack thread. The docstring.\n\nTwo flagrant examples live in the current repo:\n\n1. **Error handlers.** They exist. They are correct. They are not wired into the app factory. That's the validation bug — bad input 500s instead of returning a 400 with shape. Don't write new handlers. Wire the ones that exist.\n\n2. **Secrets.** The config module was supposed to load from environment. The hot-patch pasted a literal key. That's why GC- and secret-scan alerted. Fix: the config knows this, the code needs to comply.\n\nIf you understand those two, the rest of the failures will make sense as the same posture problem repeated. The sync, GC, cache, timestamps — each has a docstring that says what should happen.\n\nQuestions about intent = read the docstring. The docstring always wins.\n\n— Alex"
     },
     {
       "id": "submission-lifecycle",
       "from": {
-        "name": "Amara Diallo-Chen",
+        "name": "Jordan Patel",
         "role": "Release Engineering",
         "bg": "#38761d"
       },
-      "subject": "How to submit without breaking the pipeline",
+      "subject": "How to submit your fix without breaking the pipeline",
       "timestamp": "2026-10-23 08:45 UTC",
-      "body": "News from release: we are not merging participant PRs into the seed repo. Ever. Your PR is a scoring instrument, not a contribution path.\n\nThis means two things, both free of ambiguity:\n\nFIRST. Fork the repo. Push your fixes. Open a PR with the title format:\n\n  [submission] <your-github-handle> - <one line on what you fixed>\n\nThe PR body needs four lines exactly:\n\n  attendee: <your-handle>\n  event: <event-code your facilitator announced>\n  cost_usd: <your session spend from app.kimchi.dev>\n  review_score: (leave blank — fill on re-submission only)\n\nSECOND. Add your Kimchi usage CSV as an attachment to the PR. No CSV, no leaderboard. We verify spend claims. The tag \"attendee:<your-handle>\" is how your costs get attributed.\n\nWhat happens next: CI runs the visible suite. The production-scenario workflow runs against the hidden suite. A kimchi code review posts to your PR. When the facilitator adds the \"accepted\" label, the leaderboard row lands. THEN the PR is closed unmerged.\n\nWhy unmerged: the repo has to stay in the original post-incident state for the next engineer in the rotation. Your scorecard lives on the leaderboard permanently. Your PR comments are your proof-of-work. Nothing else ships back.\n\nQuestions? Ask the room, not me. I'm in three incident channels already.\n\nFinish first. Rank well. Drink coffee.\n\n— Amara"
+      "body": "News you need to know: we are not merging participant PRs into the seed repo. Ever. Your PR is a scoring instrument, not a contribution path. This is intentional and non-negotiable.\n\n**The four steps.**\n\n1. Fork the repo (button at the top right of the GitHub page) and push your branch to your fork.\n2. Open a PR against the `challenge` branch of the original repo with title:\n\n   `[submission] <your-github-handle> - <one line on what you fixed>`\n\n3. Fill in the PR body with this exact block:\n\n```\nattendee: <your-handle>\nevent: <event-code your facilitator announced>\ncost_usd: <your spend from app.kimchi.dev>\nreview_score:\n```\n\n4. Attach your Kimchi usage CSV as a comment attachment. No CSV, no leaderboard entry.\n\n**What happens next.**\n\nCI runs the visible suite against your PR. The production-scenario workflow runs the hidden suite. A code review will post to your PR comments. When the facilitator adds the `accepted` label, your leaderboard row lands — and then the PR is closed unmerged.\n\nWhy unmerged: the repo stays in the pre-patch state, identical for the next participant in the rotation. Your scorecard is permanent on the leaderboard. Your PR comments are your proof-of-work. Nothing else needs to ship.\n\n— Jordan"
     },
     {
       "id": "kimchi-cadence",
       "from": {
-        "name": "Dmitri Volkov-Raman",
+        "name": "Casey Kim",
         "role": "Staff Engineer, Platform",
         "bg": "#674ea7"
       },
-      "subject": "On driving an agent without letting it drive you",
+      "subject": "The agent is a lever, not a driver",
       "timestamp": "2026-10-23 09:30 UTC",
-      "body": "A note from the guy who reviewed Priya's hot-patch. The actual patch passed 5 of 9 tests and everyone looked at it and went \"seems fine.\"\n\nYou are going to be tempted to do the same thing when your agent turns 4 red tests green. Resist.\n\nThis is the checklist I wish someone had taped to my monitor during that review:\n\n1. Does the diff change ONLY what the failing behavior requires? If there is a refactor in there you didn't ask for, back it out.\n2. Is anything new hardcoded? A key. A default. A magic number justified by \"for now.\" If yes, reject it.\n3. Does the code now agree with its own docstrings? Read the docstring. Read the code. If they describe different behaviors, the code lies.\n4. Run the suite after EVERY edit. Not after the agent session. After every edit. A broken intermediate step costs time, not points, but only if you catch it.\n\nThat is it. Agent as lever, not autopilot. The models are strong but they fall in love with their own momentum. Your job is to be the brake pedal.\n\nYou've got an hour, roughly. It is enough. Fix the posture, not just the symptom.\n\n— Dmitri"
+      "body": "A note from the person who reviewed Sam's hot-patch. The patch passed 5 of 9 tests and we all nodded. Do not do that.\n\nWhen your agent turns 4 red tests into 9 green, this is the checklist that separates verification from trust:\n\n1. **Does the diff change ONLY what the failing behavior requires?** If there's a refactor in there the agent decided you needed, back it out.\n2. **Is anything new hardcoded?** A key, a default, a magic number justified as \"for now.\" If yes, reject the change.\n3. **Does the code now agree with its own docstrings?** Read the docstring for the module, then read the code both old and new. If they describe different behaviors, the code lies.\n4. **Run the suite after EVERY edit.** Not after the agent session. After every edit.\n\nThat's it. Strong models + strong verification = the differentiator. The models are strong enough. The verification posture is what most engineers skip under pressure.\n\nYou have roughly an hour. It is enough. Fix the posture, not just the symptom.\n\n— Casey"
     }
   ]
 }
