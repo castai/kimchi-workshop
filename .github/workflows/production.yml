@@ -22,6 +22,8 @@ env:
 
 jobs:
   production:
+    # Only run against participant submissions. Housekeeping PRs skip.
+    if: startsWith(github.event.pull_request.title, '[submission]')
     runs-on: ubuntu-latest
     steps:
       # Check out the PR's HEAD sha explicitly - safe because this workflow

@@ -15,7 +15,9 @@ permissions:
 
 jobs:
   leaderboard:
-    if: github.event.label.name == 'accepted'
+    if: |
+      github.event.label.name == 'accepted' &&
+      startsWith(github.event.pull_request.title, '[submission]')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

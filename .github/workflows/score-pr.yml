@@ -9,6 +9,9 @@ permissions:
 
 jobs:
   score:
+    # Only gate participant submissions. Housekeeping PRs (workshop
+    # infrastructure) skip scoring entirely.
+    if: startsWith(github.event.pull_request.title, '[submission]')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
