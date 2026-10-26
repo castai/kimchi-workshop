@@ -1,0 +1,50 @@
+name: kimchi-workshop
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - name: Verify seeded state (failures are the workshop)
+        run: |
+          python -m pytest tests/ -q --tb=short --no-header || true
+          RESULT=$(python -m pytest tests/ -q --no-header 2>&1 | tail -1)
+          echo "$RESULT"
+          case "$RESULT" in
+            *"5 failed"*) echo "::error::Seeded defects were fixed on main - the repo must stay broken for participants"; exit 1;;
+          esac
+          case "$RESULT" in
+            *"passed"*) echo "seeded state intact";;
+            *) echo "::error::Unexpected test result: $RESULT"; exit 1;;
+          esac
+
+  leaderboard:
+    needs: tests
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Rebuild leaderboard from submissions
+        run: |
+          pip install -r requirements.txt
+          python scripts/leaderboard.py --submissions submissions/ --out leaderboard.json
+      - name: Commit leaderboard
+        run: |
+          git config user.name "workshop-bot"
+          git config user.email "workshop-bot@users.noreply.github.com"
+          git add leaderboard.json || true
+          git commit -m "Rebuild leaderboard" || echo "nothing to commit"
+          git push || echo "no changes to push"

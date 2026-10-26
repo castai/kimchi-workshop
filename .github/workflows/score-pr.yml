@@ -1,0 +1,65 @@
+name: Score submission PR
+
+# Runs on every PR (including from forks - the sandbox has no secrets,
+# so this is safe) and on direct pushes for iteration.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  score:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install -r requirements.txt
+
+      - name: Run the hidden verification suite (the real bar)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # fetch the private suite from the verification-private branch
+          mkdir -p .verification
+          curl -sfL -H "Authorization: Bearer $GH_TOKEN" \
+            "https://api.github.com/repos/${{ github.repository }}/contents/.verification/test_hidden.py?ref=verification-private" \
+            | python -c "import json,sys,base64; sys.stdout.buffer.write(base64.b64decode(json.load(sys.stdin)['content']))" \
+            > .verification/test_hidden.py
+          echo "--- hidden suite result ---"
+          python -m pytest .verification/ -q --no-header --tb=line -p no:cacheprovider || true
+
+      - name: Score the submission
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          printf '%s' "$PR_BODY" > body.txt
+          python scripts/score_pr.py \
+            --pr "${{ github.event.pull_request.number }}" \
+            --author "${{ github.event.pull_request.user.login }}" \
+            --url "${{ github.event.pull_request.html_url }}" \
+            --title "$PR_TITLE" \
+            --body-file body.txt \
+            --out score.json --summary summary.md
+
+      - name: Upload score artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: submission-score
+          path: |
+            score.json
+            summary.md
+          if-no-files-found: ignore
+
+      - name: Show summary
+        if: always()
+        run: cat summary.md || echo "no summary produced"
