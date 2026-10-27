@@ -8,9 +8,10 @@
       "github_handle": "kunalworldwide",
       "event_code": "TEST-001",
       "issue_number": 37,
-      "joined_at": "2026-10-27T06:01:37.355780+00:00",
-      "start_time": "2026-10-27T06:01:37.355791+00:00",
-      "credit_status": "pending"
+      "joined_at": "2026-10-27T06:48:37.297418+00:00",
+      "start_time": "2026-10-27T06:48:37.297429+00:00",
+      "credit_status": "pending",
+      "rejoined_count": 1
     }
   ]
 }
