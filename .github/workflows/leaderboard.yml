@@ -344,25 +344,29 @@ jobs:
               for k, v in b.items()
           )
           spent_usd = float(row.get("cost_usd", 0) or 0)
+          requests_n = int(row.get("requests", 0) or 0)
+          commits_n = int(row.get("commits", 0) or 0)
+          elapsed_h = float(row.get("elapsed_hours", 0) or 0)
+          models_list = ", ".join(row.get("models_used", [])) or "none"
           body = (
               "Hi —\n"
               "\n"
               "Accepted. The facilitator has reviewed the PR, the suite, and the production "
               "story. Your submission is on the board.\n"
               "\n"
-              "  Points: " + str(row.get("points", 0)) + "\n"
-              "  Rank in " + str(event) + ": #" + str(rank) + " of " + str(total) + "\n"
-              "  Visible checks: " + str(row.get("tests_passed", 0)) + " passed\n"
-              "  Production checks: " + str(row.get("production_passed", 0)) + "/"
-              + str(row.get("production_total", 0)) + "\n"
-              "  Your spend: $" + "%.2f" % spent_usd + " over "
-              + str(row.get("requests", 0)) + " requests\n"
-              "  Models used: " + (", ".join(row.get("models_used", [])) or "none") + "\n"
-              "  Commits on the PR: " + str(row.get("commits", 0)) + "\n"
-              "  Time since join: %.2f hours\n" % float(row.get("elapsed_hours", 0) or 0)
-              "\n"
-              "Score breakdown:\n" + breakdown_lines + "\n"
-              "\n"
+              + "  Points: %s\n" % row.get("points", 0)
+              + "  Rank in %s: #%s of %s\n" % (event, rank, total)
+              + "  Visible checks: %s passed\n" % row.get("tests_passed", 0)
+              + "  Production checks: %s/%s\n" % (row.get("production_passed", 0),
+                                                 row.get("production_total", 0))
+              + "  Your spend: $%.2f over %d requests\n" % (spent_usd, requests_n)
+              + "  Models used: %s\n" % models_list
+              + "  Commits on the PR: %d\n" % commits_n
+              + "  Time since join: %.2f hours\n" % elapsed_h
+              + "\n"
+              + "Score breakdown:\n"
+              + breakdown_lines + "\n"
+              + "\n"
               "Now that the workshop considers you 'done', here is the full handoff:\n"
               "\n"
               "  1. Usage metrics: your Kimchi key spend lives in\n"
