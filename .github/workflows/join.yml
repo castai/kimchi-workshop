@@ -15,7 +15,10 @@ permissions:
 
 jobs:
   register:
-    if: contains(github.event.issue.labels.*.name, 'join')
+    # GitHub strips the template's `join` label for non-collaborator authors,
+    # so title-prefix is the durable trigger. We also gate against a locked
+    # delete marker to avoid cross-firing on unrelated issues.
+    if: startsWith(github.event.issue.title, '[join]')
     runs-on: ubuntu-latest
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
