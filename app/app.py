@@ -5,7 +5,7 @@ import io
 from flask import Flask, Response, jsonify, request
 
 from app.cache import TTLCache
-from app.config import CACHE_TTL, RATE_LIMIT, RATE_WINDOW, data_file
+from app.config import CACHE_TTL, RATE_LIMIT, RATE_WINDOW, STALE_DAYS, data_file
 from app.errors import register_error_handlers
 from app.models import validate_priority
 from app.ratelimit import SlidingWindowLimiter
@@ -16,7 +16,9 @@ LIST_CACHE_KEY = "tasks:list"
 
 def create_app():
     app = Flask(__name__)
-    store = TaskStore(data_file())
+    # STALE_DAYS is env-overridable per config; the store must honor it
+    # or the GC threshold silently ignores test overrides.
+    store = TaskStore(data_file(), stale_days=STALE_DAYS)
     cache = TTLCache(CACHE_TTL)
     register_error_handlers(app)
 
@@ -32,7 +34,15 @@ def create_app():
 
     @app.before_request
     def rate_limit():
-        limiter.acquire()
+        # SlidingWindowLimiter docstring: "requests receive a 429 rather
+        # than blocking". acquire() sleeps; try_acquire() reports, and we
+        # reject with the documented rate_limited error shape (errors.py).
+        allowed, retry_after = limiter.try_acquire()
+        if not allowed:
+            resp = jsonify({"error": "rate_limited", "message": "rate limit exceeded"})
+            resp.status_code = 429
+            resp.headers["Retry-After"] = str(max(1, int(retry_after) + 1))
+            return resp
 
     @app.get("/health")
     def health():
@@ -104,6 +114,7 @@ def create_app():
     # Bulk export. README: "Deletes must update export" — the CSV is
     # generated live from the store on every request, so deletes are
     # always reflected.
+    @app.get("/tasks/export")
     @app.get("/tasks/export.csv")
     def export_csv():
         tasks = store.list_tasks()
@@ -117,9 +128,11 @@ def create_app():
         writer.writeheader()
         for t in tasks:
             writer.writerow({k: t.get(k, "") for k in fieldnames})
+        # content_type (not mimetype) so Flask doesn't append a charset
+        # suffix — exact "text/csv" per the export contract.
         return Response(
             buf.getvalue(),
-            mimetype="text/csv",
+            content_type="text/csv",
             headers={
                 "Content-Disposition": 'attachment; filename="tasks.csv"',
             },
