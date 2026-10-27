@@ -12,17 +12,38 @@
   "review_score": 0.0,
   "cost_usd": 518.0,
   "cost_self_reported": true,
-  "requests": 0,
-  "models_used": [],
-  "points": 88.0,
+  "requests": 518,
+  "models_used": [
+    "redacted"
+  ],
+  "points": 40.5,
   "submitted_at": "2026-10-27T16:03:20.730318+00:00",
   "scoring_config": {
-    "budget_usd": 2.0
+    "budget_usd": 2.0,
+    "production_total": 0,
+    "visible_total": 9,
+    "scoring_version": "v2"
   },
   "name": "Kunal Das",
   "org": "Cast AI",
   "designation": "Developer Advocate",
   "production_passed": 0,
   "production_total": 0,
-  "accepted_at": "2026-10-27T16:21:21.480250+00:00"
+  "csv_cost_total": 518.0,
+  "csv_rows": 5,
+  "commits": 13,
+  "accepted_at": "2026-10-27T17:05:58.193291+00:00",
+  "elapsed_seconds": 18711,
+  "elapsed_hours": 5.2,
+  "score_breakdown": {
+    "visible_tests": 27,
+    "production_tests": 0,
+    "models_used": 2,
+    "request_count": 10,
+    "cost_efficiency": -10,
+    "time_to_accept": 3.5,
+    "commit_discipline": 8,
+    "code_quality": 0,
+    "full_clear_bonus": 0
+  }
 }
