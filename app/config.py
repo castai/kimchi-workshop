@@ -10,11 +10,14 @@ import os
 
 # Module-level snapshots (read once at import). Prefer the accessor
 # functions below anywhere env changes between import and use.
-# SECRET_KEY comes exclusively from the environment: unset means
-# empty (explicitly unconfigured), never a hardcoded fallback -
-# a literal secret in source is exactly what the incident flagged.
-SECRET_KEY = os.environ.get("SECRET_KEY") or ""
-DEBUG = os.environ.get("DEBUG", "0") == "1"
+# The public contract names are TASK_API_SECRET / TASK_API_DEBUG;
+# the classic SECRET_KEY / DEBUG names are kept as sensible fallbacks.
+SECRET_KEY = (
+    os.environ.get("TASK_API_SECRET")
+    or os.environ.get("SECRET_KEY")
+    or ""
+)
+DEBUG = (os.environ.get("TASK_API_DEBUG") or os.environ.get("DEBUG", "0")) == "1"
 STALE_DAYS = float(os.environ.get("STALE_DAYS", "7"))
 RATE_LIMIT = int(os.environ.get("RATE_LIMIT", "30"))
 RATE_WINDOW = float(os.environ.get("RATE_WINDOW", "60"))
@@ -22,8 +25,21 @@ CACHE_TTL = float(os.environ.get("CACHE_TTL", "30"))
 
 
 def secret_key():
-    """SECRET_KEY from the environment, read at call time."""
-    return os.environ.get("SECRET_KEY") or SECRET_KEY
+    """Secret from the environment, read at call time.
+
+    Public contract name is TASK_API_SECRET; SECRET_KEY is the
+    fallback.
+    """
+    return os.environ.get("TASK_API_SECRET") or os.environ.get("SECRET_KEY") or ""
+
+
+def debug():
+    """Debug flag from the environment, read at call time.
+
+    Public contract name is TASK_API_DEBUG; DEBUG is the fallback.
+    """
+    raw = os.environ.get("TASK_API_DEBUG") or os.environ.get("DEBUG", "0")
+    return raw == "1"
 
 
 def stale_days():

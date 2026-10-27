@@ -5,7 +5,7 @@ import io
 from flask import Flask, Response, jsonify, request
 
 from app.cache import TTLCache
-from app.config import cache_ttl, data_file, rate_limit, rate_window, secret_key, stale_days
+from app.config import cache_ttl, data_file, debug, rate_limit, rate_window, secret_key, stale_days
 from app.errors import register_error_handlers
 from app.models import validate_priority
 from app.ratelimit import SlidingWindowLimiter
@@ -19,6 +19,7 @@ def create_app():
     # monkeypatch.setenv between import and create_app - the exact
     # pattern the visible conftest uses for TASKS_FILE.
     app.secret_key = secret_key()
+    app.config["DEBUG"] = debug()
     store = TaskStore(data_file(), stale_days=stale_days())
     cache = TTLCache(cache_ttl())
     register_error_handlers(app)
@@ -90,18 +91,24 @@ def create_app():
             status, priority, limit, offset, assignee = parse_list_params()
         except ValueError:
             return jsonify({"error": "bad_request"}), 400
-        # One cache entry per distinct filter/pagination combination;
-        # writes clear the whole "tasks:" prefix, so every variant stays
-        # fresh.
-        key = f"tasks:list:{status}:{priority}:{limit}:{offset}:{assignee}"
+        # Cache the filtered list (pre-pagination); writes clear the
+        # whole "tasks:" prefix so every variant stays fresh.
+        key = f"tasks:list:{status}:{priority}:{assignee}"
         cached = cache.get(key)
-        if cached is not None:
-            return jsonify(cached)
-        tasks = store.list_tasks(
-            status=status, priority=priority, limit=limit, offset=offset, assignee=assignee
-        )
-        cache.set(key, tasks)
-        return jsonify(tasks)
+        if cached is None:
+            cached = store.list_tasks(status=status, priority=priority, assignee=assignee)
+            cache.set(key, cached)
+        total = len(cached)
+        tasks = cached
+        if offset is not None:
+            tasks = tasks[offset:]
+        if limit is not None:
+            tasks = tasks[:limit]
+        resp = jsonify(tasks)
+        # Total (pre-pagination) exposed via the standard header so
+        # clients can page without a body-envelope change.
+        resp.headers["X-Total-Count"] = str(total)
+        return resp
 
     @app.post("/tasks")
     def create_task():
@@ -211,11 +218,16 @@ def create_app():
         tasks = store.list_tasks(
             status=status, priority=priority, limit=limit, offset=offset, assignee=assignee
         )
+        # Deletes must drop the row: hard deletes are already gone from
+        # the store; soft-deleted rows (sync-seeded with deleted_at set)
+        # are filtered here per the export contract.
+        tasks = [t for t in tasks if not t.get("deleted_at")]
         buf = io.StringIO()
-        # Stable header order; ids first so spreadsheets don't bury it.
+        # Contract header order (id, title, status, priority,
+        # created_at, completed_at, updated_at) - exact.
         fieldnames = [
-            "id", "title", "priority", "status", "assignee",
-            "created_at", "updated_at", "completed_at", "last_activity_at",
+            "id", "title", "status", "priority",
+            "created_at", "completed_at", "updated_at",
         ]
         writer = csv.DictWriter(buf, fieldnames=fieldnames, extrasaction="ignore")
         writer.writeheader()
