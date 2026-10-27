@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-27T15:58:07.638033+00:00",
+  "generated_at": "2026-10-27T16:18:41.199341+00:00",
   "events": {
     "KOL-001": {
       "rows": [
@@ -20,13 +20,13 @@
           "requests": 0,
           "models_used": [],
           "points": 88.0,
-          "submitted_at": "2026-10-27T15:42:56.811180+00:00",
+          "submitted_at": "2026-10-27T16:03:20.730318+00:00",
           "scoring_config": {
             "budget_usd": 2.0
           },
           "production_passed": 0,
           "production_total": 0,
-          "accepted_at": "2026-10-27T15:58:07.584852+00:00",
+          "accepted_at": "2026-10-27T16:18:41.144675+00:00",
           "rank": 1
         }
       ],
