@@ -128,6 +128,19 @@
       "category": "production",
       "body": "Saw prod blow up on Deployment, Traffic shaping, and Bulk export, with GC eating live edits too. Fix the docstrings first, the spec is the honest word there. Push again and CI reruns. Alex.\n\nPush it when it is green, CI reruns.",
       "pr_url": "https://github.com/castai/kimchi-workshop/pull/43"
+    },
+    {
+      "id": "prod-log-pr-43-228c94b",
+      "from": {
+        "name": "Alex Rivera",
+        "role": "Senior SRE",
+        "bg": "#0b5394"
+      },
+      "subject": "Re: deployment - production is unhappy again",
+      "timestamp": "2026-10-27 13:14 UTC",
+      "category": "production",
+      "body": "Saw the prod report: Traffic shaping dumped 40MB, Bulk export lost Finance's deletes, and GC ate live tasks. Fix the docstrings first, the spec is the honest word on what those routes should do. Push again and CI reruns, we'll get this green. Alex\n\nPush it when it is green, CI reruns.",
+      "pr_url": "https://github.com/castai/kimchi-workshop/pull/43"
     }
   ]
 }
