@@ -485,6 +485,27 @@
 </head>
 <body>
 
+<!-- Entry gate: ask for handle on first visit -->
+<div class="join-overlay" id="entryGate">
+  <div class="join-modal" role="dialog" aria-label="Enter the workshop">
+    <div class="header">
+      <h2>Welcome to the Kimchi workshop</h2>
+    </div>
+    <div class="body">
+      <p>Set your GitHub handle so the inbox shows your personal mail, the
+         leaderboard highlights your row, and so the Join-event flow can
+         pre-fill your info.</p>
+      <div class="field">
+        <label for="gateHandle">Your GitHub handle</label>
+        <input id="gateHandle" placeholder="octocat" autocomplete="off" spellcheck="false">
+      </div>
+    </div>
+    <div class="actions">
+      <button class="submit-btn" id="gateGo">Go to inbox</button>
+    </div>
+  </div>
+</div>
+
 <!-- Top Gmail-style header -->
 <header class="gmail-top">
   <button class="hamburger" aria-label="menu" title="menu">
@@ -1112,9 +1133,33 @@ function toast(title, body) {
 document.addEventListener("DOMContentLoaded", () => {
   loadStaticBriefings();
   maybeLoadPersonal(false);
-  if (!localStorage.getItem(LS_SEEN_MODAL)) {
+
+  // Entry-gate: block on handle if first time here
+  const storedHandle = localStorage.getItem(LS_HANDLE);
+  if (!storedHandle) {
+    openModal("entryGate");
+    setTimeout(() => document.getElementById("gateHandle").focus(), 100);
+  } else if (!localStorage.getItem(LS_SEEN_MODAL)) {
     setTimeout(() => openModal("aboutModal"), 800);
   }
+
+  document.getElementById("gateGo").addEventListener("click", () => {
+    const h = document.getElementById("gateHandle").value.trim();
+    if (!h) {
+      toast("handle required", "We need a GitHub handle - even a placeholder - so your mail can find you.");
+      return;
+    }
+    localStorage.setItem(LS_HANDLE, h);
+    handleInput.value = h;
+    syncHandleChip();
+    closeModal("entryGate");
+    setTimeout(() => openModal("aboutModal"), 300);
+    maybeLoadPersonal(true);
+  });
+  document.getElementById("gateHandle").addEventListener("keydown", e => {
+    if (e.key === "Enter") document.getElementById("gateGo").click();
+  });
+
   setInterval(() => { maybeLoadPersonal(true); if (window.__board) loadBoard(); }, 60000);
 });
 </script>
