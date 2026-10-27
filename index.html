@@ -41,6 +41,16 @@
   button { font: inherit; cursor: pointer; }
   input, select { font: inherit; }
 
+  /* gated state: dim the entire app so only the active gate modal is
+     visible; pointer-events on app is cut */
+  body.gated .gmail-top,
+  body.gated .gmail-body,
+  body.gated .board-wrap {
+    filter: blur(4px) brightness(0.6);
+    pointer-events: none;
+    user-select: none;
+  }
+
   /* ==== top header (gmail-style) ==== */
   .gmail-top {
     height: 64px;
@@ -485,23 +495,39 @@
 </head>
 <body>
 
-<!-- Entry gate: ask for handle on first visit -->
-<div class="join-overlay" id="entryGate">
-  <div class="join-modal" role="dialog" aria-label="Enter the workshop">
-    <div class="header">
-      <h2>Welcome to the Kimchi workshop</h2>
-    </div>
+<!-- Two-step onboarding: (1) join the event, (2) give us your github handle -->
+<div class="join-overlay" id="joinFirstGate">
+  <div class="join-modal" role="dialog" aria-label="Join the workshop event first">
+    <div class="header"><h2>Join the workshop event</h2></div>
     <div class="body">
-      <p>Set your GitHub handle so the inbox shows your personal mail, the
-         leaderboard highlights your row, and so the Join-event flow can
-         pre-fill your info.</p>
+      <p>Before we unlock the inbox, tell us who you are and which
+         facilitator-issued event code you're joining under. This is how
+         we stamp your start time.</p>
+      <div class="field"><label for="gateName">Full name</label><input id="gateName" placeholder="Janet Kestrel"></div>
+      <div class="field"><label for="gateDesig">Designation</label><input id="gateDesig" placeholder="Senior SRE"></div>
+      <div class="field"><label for="gateOrg">Organization</label><input id="gateOrg" placeholder="Acme Corp"></div>
+      <div class="field"><label for="gateEmail">Work email</label><input id="gateEmail" placeholder="janet@example.com"></div>
+      <div class="field"><label for="gateEvent">Event code</label><input id="gateEvent" placeholder="provided by facilitator"></div>
+    </div>
+    <div class="actions">
+      <button class="submit-btn" id="gateJoinSubmit">Continue →</button>
+    </div>
+  </div>
+</div>
+
+<div class="join-overlay" id="handleGate">
+  <div class="join-modal" role="dialog" aria-label="Set your GitHub handle">
+    <div class="header"><h2>One more thing</h2></div>
+    <div class="body">
+      <p>We need your GitHub handle — this is what your personal mail,
+         scoring, and leaderboard rows hang on.</p>
       <div class="field">
-        <label for="gateHandle">Your GitHub handle</label>
+        <label for="gateHandle">GitHub handle</label>
         <input id="gateHandle" placeholder="octocat" autocomplete="off" spellcheck="false">
       </div>
     </div>
     <div class="actions">
-      <button class="submit-btn" id="gateGo">Go to inbox</button>
+      <button class="submit-btn" id="gateHandleSubmit">Go to inbox</button>
     </div>
   </div>
 </div>
@@ -1151,30 +1177,88 @@ document.addEventListener("DOMContentLoaded", () => {
   loadStaticBriefings();
   maybeLoadPersonal(false);
 
-  // Entry-gate: block on handle if first time here
+  // Two-step gate: join-event first, handle second. Hides the entire
+  // inbox from unregistered visitors so the gate actually gates.
   const storedHandle = localStorage.getItem(LS_HANDLE);
-  if (!storedHandle) {
-    openModal("entryGate");
-    setTimeout(() => document.getElementById("gateHandle").focus(), 100);
+  const joined = localStorage.getItem("kimchi.joined");
+  if (!joined) {
+    // stow the app behind the join gate; nothing else renders until they
+    // clear step 1
+    document.body.classList.add("gated");
+    openModal("joinFirstGate");
+    setTimeout(() => document.getElementById("gateName").focus(), 100);
+  } else if (!storedHandle) {
+    document.body.classList.add("gated");
+    openModal("handleGate");
   } else if (!localStorage.getItem(LS_SEEN_MODAL)) {
     setTimeout(() => openModal("aboutModal"), 800);
   }
 
-  document.getElementById("gateGo").addEventListener("click", () => {
+  // STEP 1: join-event form -> opens GitHub new-issue in another tab,
+  // then shifts to the handle-gate.
+  document.getElementById("gateJoinSubmit").addEventListener("click", () => {
+    const name  = document.getElementById("gateName").value.trim();
+    const desig = document.getElementById("gateDesig").value.trim();
+    const org   = document.getElementById("gateOrg").value.trim();
+    const email = document.getElementById("gateEmail").value.trim();
+    const code  = document.getElementById("gateEvent").value.trim();
+    if (!name || !desig || !org || !email || !code) {
+      toast("Missing fields", "All fields are required.");
+      return;
+    }
+    // Stash locally so we know they cleared step 1
+    localStorage.setItem("kimchi.joined", JSON.stringify({
+      name, org, email, event_code: code, joined_at: new Date().toISOString(),
+    }));
+    // Also record their GitHub handle when we capture it (step 2) — for
+    // now pre-fill the modal's other variant so the in-app `join` form
+    // gets what we need.
+    document.getElementById("joinName").value = name;
+    document.getElementById("joinDesig").value = desig;
+    document.getElementById("joinOrg").value = org;
+    document.getElementById("joinEmail").value = email;
+    document.getElementById("joinEvent").value = code;
+
+    // Open the GitHub issue flow against the workshop repo so we hit the
+    // server-side join workflow (`[join] <name>` issue). If they bail
+    // out of the new tab they can retry by clicking through.
+    const issueTitle = `[join] ${name}`;
+    const issueBody = [
+      `### Full name`, name, "",
+      `### Designation`, desig, "",
+      `### Organization`, org, "",
+      `### Work email`, email, "",
+      `### Event code`, code, "",
+    ].join("\n");
+    const url = `https://github.com/castai/kimchi-workshop/issues/new?` +
+      `title=${encodeURIComponent(issueTitle)}` +
+      `&body=${encodeURIComponent(issueBody)}` +
+      `&labels=join`;
+    window.open(url, "_blank");
+
+    toast("Opening GitHub", "Sign in with your GitHub account, then click 'Submit new issue'. Back here, we'll ask for your handle next.");
+    closeModal("joinFirstGate");
+    openModal("handleGate");
+    setTimeout(() => document.getElementById("gateHandle").focus(), 150);
+  });
+
+  // STEP 2: handle captures -> unlocks inbox
+  document.getElementById("gateHandleSubmit").addEventListener("click", () => {
     const h = document.getElementById("gateHandle").value.trim();
     if (!h) {
-      toast("handle required", "We need a GitHub handle - even a placeholder - so your mail can find you.");
+      toast("handle required", "We need your GitHub handle so your mail can find you.");
       return;
     }
     localStorage.setItem(LS_HANDLE, h);
     handleInput.value = h;
     syncHandleChip();
-    closeModal("entryGate");
-    setTimeout(() => openModal("aboutModal"), 300);
+    closeModal("handleGate");
+    document.body.classList.remove("gated");
     maybeLoadPersonal(true);
+    setTimeout(() => openModal("aboutModal"), 300);
   });
   document.getElementById("gateHandle").addEventListener("keydown", e => {
-    if (e.key === "Enter") document.getElementById("gateGo").click();
+    if (e.key === "Enter") document.getElementById("gateHandleSubmit").click();
   });
 
   setInterval(() => { maybeLoadPersonal(true); if (window.__board) loadBoard(); }, 60000);
