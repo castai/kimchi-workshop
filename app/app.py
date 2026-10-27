@@ -11,8 +11,6 @@ from app.models import validate_priority
 from app.ratelimit import SlidingWindowLimiter
 from app.storage import TaskStore
 
-LIST_CACHE_KEY = "tasks:list"
-
 
 def create_app():
     app = Flask(__name__)
@@ -32,6 +30,32 @@ def create_app():
         # README: "Writes must invalidate the read cache."
         cache.invalidate_prefix("tasks:")
 
+    def parse_list_params():
+        """Parse + validate the query params the list/export endpoints
+        share. Returns (status, priority, limit); raises ValueError on
+        bad input. Every supported param is forwarded to the store's
+        filter method - dropping them at the route is what served the
+        full table on every request (incident anomaly 3).
+        """
+        status = request.args.get("status")
+        if status is not None and status not in ("open", "completed"):
+            raise ValueError("invalid status")
+        priority = request.args.get("priority")
+        if priority is not None:
+            try:
+                priority = int(priority)
+            except ValueError:
+                raise ValueError("invalid priority")
+        limit = request.args.get("limit")
+        if limit is not None:
+            try:
+                limit = int(limit)
+            except ValueError:
+                raise ValueError("invalid limit")
+            if limit < 1:
+                raise ValueError("invalid limit")
+        return status, priority, limit
+
     @app.before_request
     def rate_limit():
         # SlidingWindowLimiter docstring: "requests receive a 429 rather
@@ -50,15 +74,18 @@ def create_app():
 
     @app.get("/tasks")
     def list_tasks():
-        status = request.args.get("status")
-        if status is not None and status not in ("open", "completed"):
+        try:
+            status, priority, limit = parse_list_params()
+        except ValueError:
             return jsonify({"error": "bad_request"}), 400
-        cached = cache.get(LIST_CACHE_KEY) if status is None else None
+        # One cache entry per distinct filter combination; writes clear
+        # the whole "tasks:" prefix, so every variant stays fresh.
+        key = f"tasks:list:{status}:{priority}:{limit}"
+        cached = cache.get(key)
         if cached is not None:
             return jsonify(cached)
-        tasks = store.list_tasks(status=status)
-        if status is None:
-            cache.set(LIST_CACHE_KEY, tasks)
+        tasks = store.list_tasks(status=status, priority=priority, limit=limit)
+        cache.set(key, tasks)
         return jsonify(tasks)
 
     @app.post("/tasks")
@@ -113,11 +140,15 @@ def create_app():
 
     # Bulk export. README: "Deletes must update export" — the CSV is
     # generated live from the store on every request, so deletes are
-    # always reflected.
+    # always reflected. Honors the same filters as the list endpoint.
     @app.get("/tasks/export")
     @app.get("/tasks/export.csv")
     def export_csv():
-        tasks = store.list_tasks()
+        try:
+            status, priority, limit = parse_list_params()
+        except ValueError:
+            return jsonify({"error": "bad_request"}), 400
+        tasks = store.list_tasks(status=status, priority=priority, limit=limit)
         buf = io.StringIO()
         # Stable header order; ids first so spreadsheets don't bury it.
         fieldnames = [
