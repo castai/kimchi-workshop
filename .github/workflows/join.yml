@@ -54,7 +54,7 @@ jobs:
           cp answers/.verification/register_join.py .verification/register_join.py
           OUT=$(python3 .verification/register_join.py 2>&1) || true
           echo "$OUT"
-          echo "$OUT" | grep -E '^(valid|handle|event_code|email|missing)=' | \
+          echo "$OUT" | grep -E '^(valid|handle|event_code|email|name|missing)=' | \
             while IFS='=' read -r k v; do
               echo "$k=$v" >> "$GITHUB_OUTPUT"
             done
@@ -70,6 +70,22 @@ jobs:
           git config user.email "bot@users.noreply.github.com"
           git add events/ participants/
           git commit -m "Join: @$HANDLE on event $EVENT_CODE" || echo "nothing to commit"
+          git pull --rebase origin gh-pages
+          git push origin HEAD:gh-pages
+
+      - name: Send personal welcome email to participant's site inbox
+        if: steps.reg.outputs.valid == 'yes'
+        env:
+          HANDLE: ${{ steps.reg.outputs.handle }}
+          EVENT_CODE: ${{ steps.reg.outputs.event_code }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          NAME: ${{ steps.reg.outputs.name }}
+        run: |
+          set -e
+          cp answers/.verification/send_join_welcome.py .verification/send_join_welcome.py
+          python3 .verification/send_join_welcome.py
+          git add personal/
+          git commit -m "Welcome mail: $HANDLE on $EVENT_CODE" || echo "nothing new"
           git pull --rebase origin gh-pages
           git push origin HEAD:gh-pages
 
