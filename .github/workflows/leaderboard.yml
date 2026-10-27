@@ -51,6 +51,7 @@ jobs:
           if-no-files-found: ignore
 
       - name: Record the accepted submission
+        id: record
         env:
           HANDLE: ${{ github.event.pull_request.user.login }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
@@ -195,19 +196,26 @@ jobs:
               except Exception as e:
                   print("comment csv fetch failed:", e, file=sys.stderr)
 
-          # Hard refusal: no CSV anywhere -> write a refusing record,
-          # DO NOT write to leaderboard. The facilitator will see this
-          # in the run logs; the participant already got a blocking
-          # auto-review comment.
+          # Hard refusal: no CSV anywhere -> mark this workflow run as
+          # "not recorded" and skip the leaderboard write entirely. The
+          # downstream steps (Comment the score, Publish acceptance email)
+          # check 'recorded' and skip themselves, so the participant does
+          # not get an acceptance email and no row lands on the leaderboard.
           if parsed is None or parsed["rows"] == 0:
-              refuse_note = os.path.join("records", "UNACCEPTED-%s.txt" % handle)
-              with open(refuse_note, "w") as f:
-                  f.write("Refused to accept %s on event %s: kimchi-usage.csv "
-                          "not present on branch top level nor in any PR "
-                          "comment attachment. Upload your CSV and re-label.\n"
-                          % (handle, row.get("event", "default")))
-              print(refuse_note)
-              sys.exit(1)
+              msg = ("Refused to accept %s on event %s: kimchi-usage.csv "
+                     "not present on branch top level nor in any PR "
+                     "comment attachment. Upload your CSV and re-label."
+                     % (handle, row.get("event", "default")))
+              print("::warning::" + msg)
+              out = os.environ.get("GITHUB_OUTPUT")
+              if out:
+                  with open(out, "a") as f:
+                      f.write("recorded=no\n")
+              sys.exit(0)
+          out = os.environ.get("GITHUB_OUTPUT")
+          if out:
+              with open(out, "a") as f:
+                  f.write("recorded=yes\n")
 
           csv_cost = parsed["cost"]
           csv_requests = parsed["requests"]
@@ -333,9 +341,11 @@ jobs:
           EOF
 
       - name: Rebuild leaderboard
+        if: steps.record.outputs.recorded == 'yes'
         run: python scripts/aggregate.py --records records/ --out leaderboard.json
 
       - name: Build UI config and stage docs
+        if: steps.record.outputs.recorded == 'yes'
         run: |
           python scripts/build_ui_config.py --repo "${{ github.repository }}" \
             --board leaderboard.json --out docs/config.json
@@ -343,6 +353,7 @@ jobs:
           # index.html ships in docs/ already; config + board are generated
 
       - name: Comment the score on the PR
+        if: steps.record.outputs.recorded == 'yes'
         uses: actions/github-script@v7
         with:
           script: |
@@ -392,7 +403,7 @@ jobs:
             });
 
       - name: Publish acceptance email to the participant's site inbox
-        if: always()
+        if: steps.record.outputs.recorded == 'yes'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ATTENDEE: ${{ github.event.pull_request.user.login }}
@@ -487,6 +498,7 @@ jobs:
           git push origin gh-pages
 
       - name: Commit records and leaderboard
+        if: steps.record.outputs.recorded == 'yes'
         run: |
           git config user.name "workshop-bot"
           git config user.email "workshop-bot@users.noreply.github.com"
@@ -500,7 +512,32 @@ jobs:
             sleep 5
           done
 
+      - name: Post "CSV still required" comment when recording is refused
+        if: steps.record.outputs.recorded == 'no'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.number,
+              body: [
+                "**Leaderboard recording refused.**",
+                "",
+                "The facilitator labelled this PR `accepted` but I can't find",
+                "`kimchi-usage.csv` anywhere usable:",
+                "- Not at the top level of the head branch",
+                "- Not as a CSV attachment uploaded in any PR comment",
+                "",
+                "Upload the export from https://app.kimchi.dev/usage either as a",
+                "file named `kimchi-usage.csv` in the branch, or as a comment",
+                "attachment (drag-drop onto the comment box). Then re-apply the",
+                "`accepted` label.",
+              ].join("\n"),
+            });
+
       - name: Deploy UI to Pages
+        if: steps.record.outputs.recorded == 'yes'
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
