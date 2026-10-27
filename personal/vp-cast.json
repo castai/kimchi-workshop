@@ -1,0 +1,16 @@
+{
+  "handle": "vp-cast",
+  "emails": [
+    {
+      "id": "welcome-vp-cast",
+      "from": {
+        "name": "Sam Carter",
+        "role": "VP Engineering"
+      },
+      "category": "welcome",
+      "subject": "Welcome aboard, Viktorija",
+      "body": "Settle in.\n\nThe task-api incident sits on the table. Sam's first briefing on the left explains the rollback and where your runtime sits now \u2014 start there.\n\nYour start time just got logged for event KOL-001 (issue #60). Credit allocation goes to the facilitator's queue; once credits post, the agent is live on your fork.\n\nRead the briefings in order, then fork and ship a PR. We'll keep score.",
+      "timestamp": "2026-10-27 22:07 UTC"
+    }
+  ]
+}
