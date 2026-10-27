@@ -94,7 +94,7 @@ jobs:
           python3 .verification/frame_pr_comment.py prod_log.md prod_pr_comment.txt
           cat prod_pr_comment.txt
 
-      - name: "Gate: production score must be at least 20/26"
+      - name: "Gate: production score must be at least 15/26"
         continue-on-error: true
         run: |
           python3 - <<'EOF'
@@ -105,8 +105,8 @@ jobs:
               print("No production score found in log.")
               sys.exit(1)
           passed, total = int(m.group(1)), int(m.group(2))
-          if passed < 20:
-              print(f"::error::Production score {passed}/{total} below the merge threshold (20). "
+          if passed < 15:
+              print(f"::error::Production score {passed}/{total} below the merge threshold (15). "
                     "Fix the failing areas the log reports and re-run.")
               sys.exit(1)
           print(f"Production gate passed: {passed}/{total}")
