@@ -1,8 +1,9 @@
 {
-  "generated_at": "2026-10-27T06:25:37.543356+00:00",
+  "generated_at": "2026-10-27T06:26:19.023315+00:00",
   "events": {
     "TEST-001": {
       "label": "Test workshop",
+      "count": 0,
       "rows": []
     }
   }
