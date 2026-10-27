@@ -53,34 +53,32 @@ jobs:
       - name: Record the accepted submission
         env:
           HANDLE: ${{ github.event.pull_request.user.login }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           mkdir -p records
           python - <<'EOF'
-          import json, re, os
-          row = json.load(open("download/score.json"))
+          import csv, io, json, math, os, re, subprocess, sys
+          from datetime import datetime, timezone
+          from urllib.request import Request, urlopen
 
-          # Overlay participant-profile fields (name, org, designation) from the
-          # join-registration ledger. score.json only carries the GitHub handle
-          # and a best-effort "attendee" string, so the leaderboard ends up
-          # showing handles instead of real names. Look up by handle and graft
-          # the richer profile onto the row.
-          handle = os.environ.get("HANDLE", "")
+          row = json.load(open("download/score.json"))
+          handle = os.environ["HANDLE"]
+
+          # ---- Participant profile (from join-ledger)
           pfile = os.path.join("participants", "%s.json" % handle)
+          pdata = {}
           if os.path.exists(pfile):
               with open(pfile) as f:
                   pdata = json.load(f)
-              # name takes priority over attendee for display
-              if pdata.get("name"):
-                  row["name"] = pdata["name"]
-              if pdata.get("org"):
-                  row["org"] = pdata["org"]
-              if pdata.get("designation"):
-                  row["designation"] = pdata["designation"]
-              # participant email ledger takes precedence over score.json's
-              # raw "github" guess
-              if pdata.get("email"):
-                  row["email"] = pdata["email"]
+          for k in ("name", "org", "designation", "email"):
+              if pdata.get(k):
+                  row[k] = pdata[k]
+          start_time_iso = pdata.get("start_time") or row.get("submitted_at")
 
+          # ---- Production score (from production-log artifact)
           prod_passed, prod_total = 0, 0
           prod_log = "download/prod_log.md"
           if os.path.exists(prod_log):
@@ -91,27 +89,174 @@ jobs:
                   prod_passed, prod_total = int(m.group(1)), int(m.group(2))
           row["production_passed"] = prod_passed
           row["production_total"] = prod_total
-          # rescale points: visible 10 each, production 5 each,
-          # review 0.5 per point, efficiency from existing logic
-          tests_points = row.get("tests_passed", 0) * 10
-          prod_points = prod_passed * 5
-          review = row.get("review_score", 0)
-          eff = 0
-          if row.get("cost_self_reported", False):
-              budget = row["scoring_config"]["budget_usd"]
-              cost = row["cost_usd"]
-              eff = (1 - min(cost, budget) / budget) * 20 if budget > 0 else 0
-              if cost > budget:
-                  eff = -(min(cost - budget, budget))
-          row["points"] = round(tests_points + prod_points + (review / 100) * 50 + eff, 2)
+
+          # ---- Kimchi usage CSV (real models, requests, cost)
+          csv_cost, csv_requests, csv_models, csv_rows = 0.0, 0, [], 0
+          head_repo = os.environ.get("HEAD_REPO", "")
+          head_branch = os.environ.get("HEAD_BRANCH", "")
+          if head_repo and head_branch:
+              url = (
+                  "https://raw.githubusercontent.com/%s/%s/kimchi-usage.csv"
+                  % (head_repo, head_branch)
+              )
+              req = Request(url, headers={
+                  "User-Agent": "kimchi-workshop-bot/1.0",
+                  "Accept": "text/csv,*/*;q=0.8",
+              })
+              try:
+                  with urlopen(req, timeout=15) as r:
+                      raw = r.read()
+                      if raw[:2] == b"\x1f\x8b":
+                          import gzip
+                          raw = gzip.decompress(raw)
+                  rows = list(csv.reader(io.StringIO(raw.decode())))
+                  if rows:
+                      header = [h.strip().lower().replace(" ", "_")
+                                for h in rows[0]]
+                      def col(*names):
+                          for n in names:
+                              if n in header:
+                                  return header.index(n)
+                              for i, h in enumerate(header):
+                                  if n in h:
+                                      return i
+                          return None
+                      cost_i = col("cost_usd", "cost", "spend_usd", "spend")
+                      req_i = col("requests", "request_count", "api_calls")
+                      model_i = col("model", "model_name")
+                      seen_models = set()
+                      for dr in rows[1:]:
+                          if cost_i is not None and cost_i < len(dr):
+                              try:
+                                  csv_cost += float(dr[cost_i] or 0)
+                              except ValueError:
+                                  pass
+                          if req_i is not None and req_i < len(dr):
+                              try:
+                                  csv_requests += int(dr[req_i] or 0)
+                              except ValueError:
+                                  pass
+                          if model_i is not None and model_i < len(dr) \
+                                  and dr[model_i]:
+                              seen_models.add(dr[model_i])
+                      csv_models = sorted(seen_models)
+                      csv_rows = len(rows) - 1
+              except Exception as e:
+                  print("CSV pull failed:", e, file=sys.stderr)
+
+          row["csv_cost_total"] = round(csv_cost, 4)
+          row["requests"] = csv_requests
+          row["models_used"] = csv_models
+          row["csv_rows"] = csv_rows
+          if csv_cost:
+              row["cost_usd"] = round(csv_cost, 4)
+
+          # ---- Commit count
+          commit_count = 0
+          try:
+              out = subprocess.run(
+                  ["gh", "pr", "view", str(os.environ["PR_NUMBER"]),
+                   "--repo", os.environ.get("GITHUB_REPOSITORY", "castai/kimchi-workshop"),
+                   "--json", "commits"],
+                  capture_output=True, text=True,
+                  env={**os.environ, "GH_TOKEN": os.environ.get("GITHUB_TOKEN", "")},
+              ).stdout
+              commit_count = len(json.loads(out).get("commits", []))
+          except Exception as e:
+              print("commit count fetch failed:", e, file=sys.stderr)
+          row["commits"] = commit_count
+
+          # ---- Elapsed time from join-start to accepted-at
+          accepted_at = datetime.now(timezone.utc)
+          row["accepted_at"] = accepted_at.isoformat()
+          elapsed_seconds = 0
+          if start_time_iso:
+              try:
+                  st = datetime.fromisoformat(start_time_iso.replace("Z", "+00:00"))
+                  elapsed_seconds = max(0, int((accepted_at - st).total_seconds()))
+              except Exception:
+                  pass
+          row["elapsed_seconds"] = elapsed_seconds
+          row["elapsed_hours"] = round(elapsed_seconds / 3600, 2)
+
+          # ---- Codified multi-factor scoring
+          # Output-first, with separately-scored discipline and thoroughness
+          # signals. Max possible: 116; strong par submission ~85-95.
+
+          visible_passed = row.get("tests_passed", 0)
+          visible_total = visible_passed + row.get("tests_failed", 0)
+          # (1) Visible tests, 27 points max (9 x 3)
+          p_visible = visible_passed * 3
+          # (2) Production tests, 26 points max (one point per check)
+          p_prod = prod_passed
+          # (3) CSV models used, up to 10 points (2 per distinct model, cap 10)
+          p_models = min(10, 2 * len(csv_models)) if csv_rows > 0 else 0
+          # (4) CSV request count, log-scaled up to 10 points
+          #     (1 request = 0, 50+ = 10)
+          if csv_requests > 0:
+              p_requests = min(10, int(math.log2(csv_requests + 1) * 1.77))
+          else:
+              p_requests = 0
+          # (5) Cost efficiency against a $2 budget, -10 to +10
+          #     perfectly-efficient = $0 -> +10; exactly $2 -> +5; $10+ -> -10
+          budget = 2.0
+          if csv_rows == 0:
+              p_cost = 0  # no CSV = no signal either way
+          elif csv_cost <= budget:
+              p_cost = 10 - 5 * (csv_cost / budget)
+          else:
+              over = csv_cost - budget
+              p_cost = -min(10, over / 1.0)
+          # (6) Time-to-accept, -10 to +10 (faster is better, 24h scale)
+          #     elapsed <= 2h -> +10; 4h -> +5; 8h -> 0; 24h -> -10
+          h = elapsed_seconds / 3600
+          if h <= 2: p_time = 10
+          elif h <= 4: p_time = 10 - 2.5 * (h - 2)
+          elif h <= 8: p_time = 5 - 1.25 * (h - 4)
+          elif h <= 24: p_time = -0.9375 * (h - 8)
+          else: p_time = -10
+          # (7) Commit-discipline: sweet spot is 5-15 commits; up to +8
+          c = commit_count
+          if 5 <= c <= 15: p_commits = 8
+          elif 1 <= c < 5: p_commits = 3 + c
+          elif 15 < c <= 30: p_commits = 8 - 0.5 * (c - 15)
+          else: p_commits = -5  # >30 = noise
+          p_commits = int(p_commits)
+          # (8) Quality-of-code (LLM review_score), 0-10 points
+          review = row.get("review_score", 0) or 0
+          p_quality = int((review / 100.0) * 10)
+          # (9) All-challenges-passed bonus (visible 9/9 and production >= 23/26)
+          full_clear = (visible_passed == 9 and prod_passed >= 23)
+          p_bonus = 5 if full_clear else 0
+
+          breakdown = {
+              "visible_tests": p_visible,
+              "production_tests": p_prod,
+              "models_used": p_models,
+              "request_count": p_requests,
+              "cost_efficiency": round(p_cost, 2),
+              "time_to_accept": round(p_time, 2),
+              "commit_discipline": p_commits,
+              "code_quality": p_quality,
+              "full_clear_bonus": p_bonus,
+          }
+          points = round(sum(breakdown.values()), 2)
+          row["points"] = points
+          row["score_breakdown"] = breakdown
+          row["scoring_config"] = {
+              "budget_usd": budget,
+              "production_total": prod_total,
+              "visible_total": visible_total,
+              "scoring_version": "v2",
+          }
           row["status"] = "accepted"
-          row["accepted_at"] = __import__("datetime").datetime.now(
-              __import__("datetime").timezone.utc).isoformat()
+
           name = "%s-%s.json" % (row.get("event", "default"),
                                  row.get("attendee", "unknown"))
           with open("records/" + name, "w") as f:
               json.dump(row, f, indent=2)
-          print("recorded", name)
+          print("recorded", name, "points=", points)
+          print("  breakdown:", breakdown)
           with open("record_for_inbox.json", "w") as f:
               json.dump(row, f)
           EOF
@@ -131,21 +276,40 @@ jobs:
         with:
           script: |
             const fs = require("fs");
-            const row = JSON.parse(fs.readFileSync("download/score.json", "utf8"));
+            const rec = JSON.parse(fs.readFileSync("record_for_inbox.json", "utf8"));
             const board = JSON.parse(fs.readFileSync("leaderboard.json", "utf8"));
-            const event = row.event || "default";
+            const event = rec.event || "default";
             const ranked = (board.events[event] && board.events[event].rows) || [];
-            const me = ranked.find((r) => r.attendee === row.attendee);
+            const me = ranked.find((r) => r.attendee === rec.attendee);
             const rank = me ? me.rank : "?";
+            const b = rec.score_breakdown || {};
+            const fmt = (v) => (typeof v === "number" ? v.toFixed(2) : String(v));
             const body = [
               "### 🏆 Submission accepted",
               "",
               "| | |",
               "| --- | --- |",
-              "| Points | **" + row.points.toFixed(2) + "** |",
-              "| Tests | " + row.tests_passed + " passed, " + row.tests_failed + " failed |",
-              "| Cost | $" + (row.cost_usd || 0).toFixed(2) + " |",
+              "| **Points** | **" + fmt(rec.points) + "** |",
               "| Rank in **" + event + "** | #" + rank + " of " + ranked.length + " |",
+              "| Visible | " + rec.tests_passed + "/" + ((rec.tests_passed||0)+(rec.tests_failed||0)) + " |",
+              "| Production | " + (rec.production_passed||0) + "/" + (rec.production_total||0) + " |",
+              "| CSV cost | $" + (rec.cost_usd||0).toFixed(2) + " across " + (rec.requests||0) + " requests |",
+              "| Models used | " + ((rec.models_used||[]).length) + " (" + (rec.models_used||[]).join(", ") + ")" + " |",
+              "| Commits | " + (rec.commits||0) + " |",
+              "| Time to accept | " + fmt(rec.elapsed_hours||0) + " h |",
+              "",
+              "**Score breakdown**",
+              "| Signal | Points |",
+              "| --- | --- |",
+              "| Visible tests | " + fmt(b.visible_tests||0) + " |",
+              "| Production tests | " + fmt(b.production_tests||0) + " |",
+              "| Model diversity | " + fmt(b.models_used||0) + " |",
+              "| Request throughput | " + fmt(b.request_count||0) + " |",
+              "| Cost efficiency | " + fmt(b.cost_efficiency||0) + " |",
+              "| Time to accept | " + fmt(b.time_to_accept||0) + " |",
+              "| Commit discipline | " + fmt(b.commit_discipline||0) + " |",
+              "| Code quality | " + fmt(b.code_quality||0) + " |",
+              "| Full-clear bonus | " + fmt(b.full_clear_bonus||0) + " |",
               "",
               "See the live leaderboard: " + context.payload.repository.html_url + "#leaderboard",
             ].join("\n");
@@ -174,6 +338,12 @@ jobs:
           me = next((r for r in ranked if r.get("attendee") == row.get("attendee")), None)
           rank = me.get("rank") if me else "?"
           total = len(ranked)
+          b = row.get("score_breakdown", {}) or {}
+          breakdown_lines = "\n".join(
+              "  - %s: %.2f" % (k.replace("_", " "), float(v or 0))
+              for k, v in b.items()
+          )
+          spent_usd = float(row.get("cost_usd", 0) or 0)
           body = (
               "Hi —\n"
               "\n"
@@ -183,7 +353,15 @@ jobs:
               "  Points: " + str(row.get("points", 0)) + "\n"
               "  Rank in " + str(event) + ": #" + str(rank) + " of " + str(total) + "\n"
               "  Visible checks: " + str(row.get("tests_passed", 0)) + " passed\n"
-              "  Your spend: $" + "%.2f" % float(row.get("cost_usd", 0) or 0) + "\n"
+              "  Production checks: " + str(row.get("production_passed", 0)) + "/"
+              + str(row.get("production_total", 0)) + "\n"
+              "  Your spend: $" + "%.2f" % spent_usd + " over "
+              + str(row.get("requests", 0)) + " requests\n"
+              "  Models used: " + (", ".join(row.get("models_used", [])) or "none") + "\n"
+              "  Commits on the PR: " + str(row.get("commits", 0)) + "\n"
+              "  Time since join: %.2f hours\n" % float(row.get("elapsed_hours", 0) or 0)
+              "\n"
+              "Score breakdown:\n" + breakdown_lines + "\n"
               "\n"
               "Now that the workshop considers you 'done', here is the full handoff:\n"
               "\n"
