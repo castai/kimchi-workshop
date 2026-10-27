@@ -246,7 +246,11 @@ jobs:
           if [ "$REMAINING" -lt 0 ]; then REMAINING=0; fi
 
           if [ "$ACCEPT" = "yes" ]; then
-            gh pr label "$PR_NUMBER" --add accepted --repo "${{ github.repository }}" || true
+            # `gh pr label --add` is not present on all GH CLI versions in
+            # Actions runners - use the REST API so the label write is
+            # always reliable.
+            gh api "repos/${{ github.repository }}/issues/${PR_NUMBER}/labels" \
+              -X POST -f "labels[]=accepted" || echo "label add skipped"
             printf 'Auto-accepted by the workshop bot.\n\n- Visible suite: %s/%s\n- Production: %s/26 (need %s)\n- CSV matches the reported cost.\n\nThe leaderboard workflow runs next; Sam Carter will mail your inbox once the row lands.\n' \
               "$V_PASS" "$V_TOTAL" "$PROD_SCORE" "$REQUIRED_PROD" > /tmp/accept_body.txt
             gh pr comment "$PR_NUMBER" --repo "${{ github.repository }}" --body-file /tmp/accept_body.txt
