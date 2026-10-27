@@ -6,171 +6,278 @@
 <title>Kimchi Workshop — Inbox</title>
 <style>
   :root {
-    --bg: #111318;
-    --panel: #1a1d24;
-    --panel2: #20242d;
-    --border: #2c313a;
-    --text: #e8eaf0;
-    --muted: #9aa0ac;
-    --dim: #6b7280;
-    --accent: #4ade80;
-    --accent-dim: rgba(74, 222, 128, 0.12);
-    --gold: #fbbf24;
-    --silver: #cbd5e1;
-    --bronze: #d0a27a;
-    --danger: #f87171;
+    --bg: #f6f8fc;
+    --surface: #ffffff;
+    --surface-2: #f0f4f9;
+    --border: #dde3ea;
+    --text: #1f1f1f;
+    --muted: #444746;
+    --dim: #5f6368;
+    --accent: #0b57d0;
+    --accent-strong: #0842a0;
+    --accent-tint: #d3e3fd;
+    --category-bg: #eceeed;
+    --gold: #b8860b;
+    --silver: #707070;
+    --bronze: #a2766d;
+    --danger: #d93025;
+    --success: #188038;
+    --shadow-sm: 0 1px 2px rgba(60, 64, 67, 0.3);
+    --shadow-lg: 0 8px 24px rgba(60, 64, 67, 0.18);
+    --radius-md: 8px;
+    --radius-lg: 16px;
+    --radius-pill: 999px;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-      Helvetica, Arial, sans-serif;
-    background: var(--bg); color: var(--text);
-    height: 100vh; overflow: hidden;
-    display: flex; flex-direction: column;
+    font-family: "Google Sans", Roboto, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
   }
   button { font: inherit; cursor: pointer; }
+  input, select { font: inherit; }
 
-  header {
-    height: 54px; flex: none;
-    display: flex; align-items: center; gap: 14px;
-    padding: 0 18px;
-    background: var(--panel);
-    border-bottom: 1px solid var(--border);
-  }
-  .brand { display: flex; align-items: baseline; gap: 8px; }
-  .brand .logo { font-size: 18px; font-weight: 800; letter-spacing: -0.5px; }
-  .brand .logo .k { color: var(--accent); }
-  .brand .tag { color: var(--muted); font-size: 12px; font-style: italic; }
-  header .spacer { flex: 1; min-width: 8px; }
-  .handle-pill {
-    display: flex; align-items: center; gap: 8px;
-    background: var(--panel2); border: 1px solid var(--border);
-    border-radius: 999px; padding: 5px 12px;
-    position: relative; transition: border-color 0.3s, box-shadow 0.3s;
-  }
-  .handle-pill.needs-handle {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 3px var(--accent-dim);
-    animation: pulse-ring 2s ease-in-out infinite;
-  }
-  @keyframes pulse-ring {
-    0%, 100% { box-shadow: 0 0 0 3px var(--accent-dim); }
-    50% { box-shadow: 0 0 0 6px rgba(74, 222, 128, 0.28); }
-  }
-  .handle-cue {
-    position: absolute; top: calc(100% + 10px); right: 0;
-    background: var(--accent); color: #062b16;
-    font-size: 11.5px; font-weight: 700;
-    padding: 6px 12px; border-radius: 8px;
-    white-space: nowrap;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
-    animation: bob 1.6s ease-in-out infinite;
-    z-index: 30;
-  }
-  .handle-cue::before {
-    content: ""; position: absolute; bottom: 100%; right: 26px;
-    border: 6px solid transparent; border-bottom-color: var(--accent);
-  }
-  @keyframes bob {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-4px); }
-  }
-  .handle-pill input {
-    background: transparent; border: none; outline: none;
-    color: var(--text); font-size: 13px; width: 130px;
-  }
-  .handle-pill input::placeholder { color: var(--dim); }
-  .handle-pill .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dim); }
-  .handle-pill.active .dot { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
-  .help-btn {
-    width: 30px; height: 30px; border-radius: 50%;
-    background: transparent; border: 1px solid var(--border);
-    color: var(--muted); font-size: 14px;
-  }
-  .help-btn:hover { color: var(--text); border-color: var(--accent); }
-
-  .layout { flex: 1; display: flex; min-height: 0; }
-
-  nav.rail {
-    width: 76px; flex: none;
-    background: var(--panel);
-    border-right: 1px solid var(--border);
-    display: flex; flex-direction: column;
-    padding-top: 10px;
-  }
-  .rail-item {
-    display: flex; flex-direction: column; align-items: center; gap: 4px;
-    padding: 12px 4px; margin: 2px 8px;
-    background: transparent; border: none; border-radius: 10px;
-    color: var(--muted); font-size: 10.5px; position: relative;
-  }
-  .rail-item .ico { font-size: 19px; }
-  .rail-item:hover { color: var(--text); background: var(--panel2); }
-  .rail-item.active { color: var(--accent); background: var(--accent-dim); }
-  .rail-item .badge {
-    position: absolute; top: 6px; right: 12px;
-    min-width: 16px; height: 16px; padding: 0 4px;
-    background: var(--danger); color: #fff;
-    border-radius: 999px; font-size: 10px; font-weight: 700;
-    display: flex; align-items: center; justify-content: center;
-  }
-  .rail-bottom { margin-top: auto; padding-bottom: 10px; }
-
-  .mail-list {
-    width: 340px; flex: none;
+  /* ==== top header (gmail-style) ==== */
+  .gmail-top {
+    height: 64px;
+    flex: none;
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    gap: 12px;
     background: var(--bg);
+  }
+  .hamburger {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    border: none; background: transparent;
+    color: var(--dim);
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .hamburger:hover { background: var(--surface-2); }
+  .brand-lockup {
+    display: flex; align-items: center; gap: 8px;
+    min-width: 200px;
+    padding: 0 4px;
+  }
+  .brand-logo {
+    font-size: 22px; font-weight: 400; color: var(--dim);
+    display: flex; align-items: center; gap: 8px;
+    user-select: none;
+  }
+  .brand-logo .mark {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 32px; height: 32px;
+    background: linear-gradient(135deg, #0b57d0 0%, #4285f4 100%);
+    color: #fff; border-radius: 8px; font-size: 14px; font-weight: 700;
+  }
+  .search-strip {
+    flex: 1; max-width: 720px; display: flex; align-items: center;
+    background: var(--surface-2);
+    border-radius: var(--radius-pill);
+    padding: 4px;
+  }
+  .search-icon {
+    width: 44px; height: 40px;
+    border: none; background: transparent; color: var(--dim);
+    border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+  }
+  .search-strip input {
+    flex: 1; height: 40px;
+    border: none; background: transparent; outline: none;
+    font-size: 15px; color: var(--text);
+    padding: 0 12px;
+  }
+  .search-strip input::placeholder { color: var(--dim); }
+  .toggle-search-icon {
+    width: 44px; height: 40px;
+    border: none; background: transparent; color: var(--dim);
+    border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+  }
+  .top-right {
+    margin-left: auto; display: flex; align-items: center; gap: 4px;
+  }
+  .icon-btn {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    border: none; background: transparent; color: var(--dim);
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .icon-btn:hover { background: var(--surface-2); }
+  .profile-chip {
+    display: flex; align-items: center; gap: 10px;
+    border-radius: var(--radius-pill);
+    padding: 4px 12px 4px 4px; margin-left: 8px;
+    background: var(--surface-2); border: 1px solid var(--border);
+    font-size: 13px; color: var(--text);
+  }
+  .profile-chip .avatar-pic {
+    width: 34px; height: 34px; border-radius: 50%;
+    overflow: hidden; background: #ccc;
+  }
+  .profile-chip .avatar-pic img { width: 100%; height: 100%; object-fit: cover; }
+  .profile-chip .handle-name { font-weight: 500; max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .profile-chip input {
+    border: none; background: transparent; outline: none;
+    width: 200px; font-size: 13px;
+    color: var(--text);
+  }
+  .profile-chip input::placeholder { color: var(--dim); }
+  .profile-chip.placeholder-set {
+    border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-tint);
+    animation: pulse-accent 2s ease-in-out infinite;
+  }
+  @keyframes pulse-accent {
+    0%, 100% { box-shadow: 0 0 0 3px var(--accent-tint); }
+    50% { box-shadow: 0 0 0 6px rgba(11, 87, 208, 0.18); }
+  }
+
+  /* ==== gmail layout ==== */
+  .gmail-body { flex: 1; display: flex; min-height: 0; padding: 0 12px 12px; }
+
+  /* left rail + compose FAB */
+  .gmail-rail {
+    width: 256px; flex: none;
+    padding-right: 16px;
+    display: flex; flex-direction: column; gap: 2px;
+  }
+  .compose-btn {
+    display: flex; align-items: center; gap: 12px;
+    padding: 16px 24px;
+    margin: 8px 0 12px 8px;
+    border: none;
+    background: var(--accent-tint);
+    color: var(--accent);
+    font-weight: 500; font-size: 14px;
+    border-radius: var(--radius-lg);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    transition: box-shadow 0.2s, background 0.2s;
+  }
+  .compose-btn:hover { background: #c2d7f0; box-shadow: 0 4px 8px rgba(0,0,0,0.15); }
+  .compose-btn .ico {
+    font-size: 18px; line-height: 1;
+  }
+  .rail-nav {
+    display: flex; flex-direction: column;
+  }
+  .rail-nav-item {
+    display: flex; align-items: center; gap: 16px;
+    padding: 8px 12px 8px 24px;
+    margin-right: 8px;
+    border: none;
+    background: transparent;
+    border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
+    color: var(--muted); font-size: 13.5px; text-align: left;
+  }
+  .rail-nav-item:hover { background: rgba(60, 64, 67, 0.08); }
+  .rail-nav-item.active {
+    background: var(--accent-tint);
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .rail-nav-item .ico { font-size: 18px; width: 20px; text-align: center; }
+  .rail-nav-item .badge {
+    margin-left: auto;
+    background: var(--accent); color: #fff;
+    border-radius: 999px; padding: 2px 8px;
+    font-size: 11px; font-weight: 700;
+    min-width: 20px; text-align: center;
+  }
+  .rail-bottom {
+    margin-top: auto;
+    padding: 8px 0;
+    border-top: 1px solid var(--border);
+    padding-right: 16px;
+  }
+
+  /* central column: inbox view + reader */
+  .gmail-center {
+    flex: 1; display: flex; min-width: 0;
+    background: var(--surface);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+  }
+
+  /* mail list column */
+  .mail-list {
+    width: 460px; flex: none;
+    background: var(--surface);
     border-right: 1px solid var(--border);
     overflow-y: auto;
   }
   .mail-list-header {
     padding: 14px 16px 10px;
-    font-size: 12px; text-transform: uppercase; letter-spacing: 0.8px;
-    color: var(--muted);
+    font-size: 13px;
+    color: var(--dim);
+    border-bottom: 1px solid var(--border);
     display: flex; justify-content: space-between; align-items: center;
-    position: sticky; top: 0; background: var(--bg); z-index: 2;
   }
   .mail-card {
-    display: flex; gap: 8px; align-items: center;
-    padding: 10px 14px;
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 16px;
     border-bottom: 1px solid var(--border);
     cursor: pointer; position: relative;
-    font-size: 13px;
   }
-  .mail-card:hover { background: var(--panel); }
-  .mail-card.selected { background: var(--panel); box-shadow: inset 3px 0 0 var(--accent); }
-  .mail-card.unread .subject { color: var(--text); font-weight: 700; }
-  .mail-card.unread .sender { color: var(--accent); font-weight: 700; }
+  .mail-card:hover { background: var(--surface-2); }
+  .mail-card.selected { background: var(--accent-tint); }
+  .mail-card.unread .subject { font-weight: 700; color: var(--text); }
+  .mail-card.unread .sender { font-weight: 700; color: var(--text); }
   .mail-card .unread-dot {
-    position: absolute; left: 5px; top: 50%; transform: translateY(-50%);
-    width: 5px; height: 5px; border-radius: 50%; background: var(--accent);
-    flex: none;
+    position: absolute; left: 6px; top: 50%;
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--accent);
   }
-  .mail-card .avatar {
-    width: 28px; height: 28px; border-radius: 50%; flex: none;
-    display: flex; align-items: center; justify-content: center;
-    font-weight: 800; font-size: 11px; color: #fff;
+  .mail-card .avatar-pic {
+    width: 36px; height: 36px; border-radius: 50%;
+    overflow: hidden; flex: none;
+    background: var(--surface-2);
   }
-  .mail-card .mm { min-width: 0; flex: 1; }
-  .mail-card .row1 { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
-  .mail-card .sender { font-size: 12.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .mail-card .time { font-size: 11px; color: var(--dim); flex: none; }
-  .mail-card .one-line {
+  .mail-card .avatar-pic img { width: 100%; height: 100%; object-fit: cover; }
+  .mail-card .mm { min-width: 0; flex: 1; display: flex; gap: 6px; align-items: baseline; }
+  .mail-card .sender {
+    font-size: 13px; color: var(--text);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    flex: none; max-width: 200px;
+  }
+  .mail-card .subject {
+    font-size: 13px; color: var(--muted);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    flex: 1;
+  }
+  .mail-card .time {
+    font-size: 11px; color: var(--dim);
+    flex: none; margin-left: auto;
+  }
+  .mail-card .row2 {
     display: flex; gap: 8px; align-items: baseline;
-    white-space: nowrap; overflow: hidden;
+    font-size: 12.5px;
+    padding-top: 2px;
   }
-  .mail-card .subject { font-size: 12.5px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 1; }
-  .mail-card .snippet { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 2; min-width: 0; }
-  .mail-card .cat {
-    display: inline-block; font-size: 10px; padding: 1px 6px; margin-left: auto;
-    border: 1px solid var(--border); border-radius: 4px; color: var(--dim);
-    text-transform: uppercase; letter-spacing: 0.4px; flex: none;
-  }
-  .list-empty { padding: 40px 20px; text-align: center; color: var(--dim); font-size: 13px; line-height: 1.7; }
-
-  .reader {
+  .mail-card .snippet {
     flex: 1; min-width: 0;
-    background: var(--panel);
-    overflow-y: auto;
+    color: var(--dim);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .mail-card .cat {
+    flex: none;
+    font-size: 10px; padding: 1px 6px;
+    background: var(--category-bg); color: var(--dim);
+    border-radius: 3px;
+    text-transform: uppercase; letter-spacing: 0.4px;
+  }
+  .list-empty {
+    padding: 40px 20px; text-align: center;
+    color: var(--dim); font-size: 13px; line-height: 1.6;
+  }
+
+  /* reader column */
+  .reader {
+    flex: 1; min-width: 0; overflow-y: auto;
     display: flex; flex-direction: column;
   }
   .reader-empty {
@@ -178,233 +285,402 @@
     align-items: center; justify-content: center; gap: 12px;
     color: var(--dim);
   }
-  .reader-empty .big { font-size: 52px; opacity: 0.5; }
-  .reader-empty .cap { font-size: 14px; }
-
-  .mail-view { max-width: 820px; width: 100%; margin: 0 auto; padding: 28px 34px 60px; }
-  .mail-view .subject-big { font-size: 21px; font-weight: 700; line-height: 1.35; }
-  .mail-view .catline { margin-top: 8px; display: flex; gap: 8px; }
+  .reader-empty .big { font-size: 56px; opacity: 0.35; }
+  .reader-empty .cap { font-size: 13.5px; line-height: 1.7; text-align: center; }
+  .mail-view {
+    width: 100%; max-width: 860px; padding: 32px 40px 48px; margin: 0 auto;
+  }
+  .mail-view .subject-line {
+    font-size: 20px; font-weight: 500; line-height: 1.4; color: var(--text);
+  }
+  .mail-view .catline { margin-top: 10px; display: flex; gap: 8px; }
   .mail-view .catpill {
-    font-size: 10.5px; padding: 2px 9px;
-    background: var(--panel2); border: 1px solid var(--border);
-    border-radius: 999px; color: var(--muted);
-    text-transform: uppercase; letter-spacing: 0.5px;
+    font-size: 11px; padding: 3px 10px;
+    background: var(--category-bg); color: var(--dim);
+    border-radius: 999px;
+    text-transform: uppercase; letter-spacing: 0.4px;
   }
-  .mail-head { display: flex; gap: 12px; align-items: center; margin: 22px 0 6px; }
-  .mail-head .avatar {
-    width: 42px; height: 42px; border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    font-weight: 800; font-size: 15px; color: #fff; flex: none;
+  .mail-head {
+    display: flex; gap: 12px; align-items: center; margin: 24px 0 12px;
   }
-  .mail-head .who .name { font-size: 14.5px; font-weight: 700; }
-  .mail-head .who .role { font-size: 12px; color: var(--muted); }
+  .mail-head .avatar-pic {
+    width: 42px; height: 42px; border-radius: 50%; overflow: hidden;
+    background: var(--surface-2);
+  }
+  .mail-head .avatar-pic img { width: 100%; height: 100%; object-fit: cover; }
+  .mail-head .who .name { font-size: 14px; font-weight: 600; color: var(--text); }
+  .mail-head .who .role { font-size: 12px; color: var(--dim); }
   .mail-head .when { margin-left: auto; font-size: 12px; color: var(--dim); }
   .mail-body {
-    margin-top: 18px; font-size: 14px; line-height: 1.8; color: #d6d9e0;
+    margin-top: 18px;
+    font-size: 14px; line-height: 1.7;
+    color: var(--text);
     white-space: pre-wrap;
   }
-  .mail-body strong { color: var(--text); }
-  .mail-actions { margin-top: 26px; padding-top: 18px; border-top: 1px solid var(--border); display: flex; gap: 10px; flex-wrap: wrap; }
+  .mail-body strong { font-weight: 600; color: var(--text); }
+  .mail-body code {
+    background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: 4px; padding: 1px 4px;
+    font-size: 12.5px;
+    font-family: "SF Mono", Consolas, monospace;
+  }
+  .mail-actions {
+    margin-top: 26px; padding-top: 18px;
+    border-top: 1px solid var(--border);
+    display: flex; gap: 10px; flex-wrap: wrap;
+  }
   .btn {
-    padding: 9px 18px; border-radius: 8px; font-size: 13px; font-weight: 600;
-    border: 1px solid var(--border); background: var(--panel2); color: var(--text);
-    text-decoration: none; display: inline-flex; align-items: center; gap: 7px;
+    padding: 8px 16px; border-radius: 4px;
+    font-size: 13px; font-weight: 600;
+    border: 1px solid var(--border);
+    background: var(--surface); color: var(--accent);
+    text-decoration: none; display: inline-flex; align-items: center; gap: 6px;
   }
-  .btn:hover { border-color: var(--accent); }
-  .btn.primary { background: var(--accent); color: #062b16; border-color: var(--accent); }
-  .btn.primary:hover { filter: brightness(1.1); }
+  .btn:hover { background: var(--surface-2); }
+  .btn.primary {
+    background: var(--accent); color: #fff; border-color: var(--accent);
+  }
+  .btn.primary:hover { background: var(--accent-strong); }
 
-  .board-wrap { flex: 1; min-width: 0; overflow-y: auto; padding: 22px 26px; display: none; }
+  /* ==== leaderboard / board view ==== */
+  .board-wrap { flex: 1; min-width: 0; overflow-y: auto; padding: 24px 28px; display: none; }
   .board-wrap.on { display: block; }
-  .board-inner { max-width: 980px; margin: 0 auto; }
+  .board-inner { max-width: 1000px; margin: 0 auto; }
   .controls {
-    display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
-    margin: 0 0 14px; padding: 12px; background: var(--panel);
-    border: 1px solid var(--border); border-radius: 10px;
+    display: flex; gap: 12px; flex-wrap: wrap; align-items: center;
+    margin: 0 0 14px; padding: 14px;
+    background: var(--surface);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
   }
-  .controls label { font-size: 11px; color: var(--muted); display: block; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .controls label { font-size: 11px; color: var(--dim); display: block; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.4px; }
   .controls select, .controls input {
-    background: var(--bg); color: var(--text); border: 1px solid var(--border);
-    border-radius: 6px; padding: 8px 10px; font-size: 13px; min-width: 170px;
+    background: var(--surface); color: var(--text);
+    border: 1px solid var(--border); border-radius: 6px;
+    padding: 7px 10px; font-size: 13px; min-width: 160px;
   }
-  .meta { margin-left: auto; font-size: 12px; color: var(--muted); text-align: right; }
-  table { width: 100%; border-collapse: collapse; background: var(--panel);
-    border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  .meta { margin-left: auto; font-size: 12px; color: var(--dim); text-align: right; }
+  table {
+    width: 100%; border-collapse: collapse;
+    background: var(--surface); border-radius: var(--radius-md);
+    overflow: hidden; box-shadow: var(--shadow-sm);
+  }
   th, td { padding: 11px 14px; text-align: left; font-size: 13.5px; }
   thead th {
-    background: var(--panel2); color: var(--muted); font-size: 10.5px;
-    text-transform: uppercase; letter-spacing: 0.8px; border-bottom: 1px solid var(--border);
+    background: var(--surface-2); color: var(--dim); font-size: 10.5px;
+    text-transform: uppercase; letter-spacing: 0.6px; border-bottom: 1px solid var(--border);
   }
   tbody tr { border-bottom: 1px solid var(--border); }
   tbody tr:last-child { border-bottom: none; }
-  tbody tr:hover { background: var(--panel2); }
-  tbody tr.me { background: var(--accent-dim); }
-  .rank { width: 60px; font-weight: 700; }
-  .rank-1 { color: var(--gold); } .rank-2 { color: var(--silver); } .rank-3 { color: var(--bronze); }
+  tbody tr:hover { background: var(--surface-2); }
+  tbody tr.me { background: var(--accent-tint); }
+  .rank { width: 60px; font-weight: 600; font-size: 13.5px; color: var(--text); }
+  .rank-1 { color: var(--gold); font-weight: 800; }
+  .rank-2 { color: var(--silver); font-weight: 800; }
+  .rank-3 { color: var(--bronze); font-weight: 800; }
   .medal { font-size: 14px; margin-right: 3px; }
-  .handle { font-weight: 600; }
-  .gh { color: var(--muted); font-size: 12px; }
-  .pts { font-weight: 700; color: var(--accent); }
-  .bar { height: 5px; width: 100%; background: var(--bg); border-radius: 3px; overflow: hidden; margin-top: 4px; }
-  .bar i { display: block; height: 100%; background: linear-gradient(90deg, #16a34a, #4ade80); border-radius: 3px; }
-  .empty { padding: 44px; text-align: center; color: var(--muted); font-size: 13px; line-height: 1.8; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; }
-  .bfoot { margin-top: 16px; color: var(--dim); font-size: 12px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+  .handle { font-weight: 500; }
+  .gh { color: var(--dim); font-size: 12px; }
+  .pts { font-weight: 600; color: var(--accent); }
+  .bar { height: 4px; width: 100%; background: var(--surface-2); border-radius: 2px; overflow: hidden; margin-top: 4px; }
+  .bar i { display: block; height: 100%; background: var(--accent); border-radius: 2px; }
+  .empty {
+    padding: 44px; text-align: center;
+    color: var(--muted); font-size: 13px; line-height: 1.7;
+    background: var(--surface); border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+  }
+  .bfoot {
+    margin-top: 16px; color: var(--dim); font-size: 12px;
+    display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px;
+  }
 
-  .modal-overlay {
+  /* ==== join modal ==== */
+  .join-overlay {
     position: fixed; inset: 0; z-index: 50;
-    background: rgba(5, 7, 10, 0.82);
+    background: rgba(20, 21, 24, 0.45);
     display: none; align-items: center; justify-content: center;
-    backdrop-filter: blur(3px);
   }
-  .modal-overlay.on { display: flex; }
-  .modal {
-    width: 460px; max-width: 92vw;
-    background: var(--panel); border: 1px solid var(--border);
-    border-radius: 14px; padding: 30px 32px;
-    box-shadow: 0 30px 80px rgba(0,0,0,0.6);
-    animation: pop 0.35s cubic-bezier(0.2, 1.4, 0.4, 1);
+  .join-overlay.on { display: flex; }
+  .join-modal {
+    width: 520px; max-width: 92vw;
+    background: var(--surface);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+    overflow: hidden;
+    animation: pop 0.3s cubic-bezier(0.2, 1.4, 0.4, 1);
   }
-  @keyframes pop { from { transform: scale(0.85) translateY(20px); opacity: 0; } }
-  .modal .m-ico { font-size: 40px; margin-bottom: 14px; }
-  .modal h3 { font-size: 19px; font-weight: 800; line-height: 1.4; }
-  .modal p { margin-top: 12px; color: var(--muted); font-size: 13.5px; line-height: 1.7; }
-  .modal .m-go {
-    margin-top: 22px; width: 100%;
-    padding: 12px; border: none; border-radius: 9px;
-    background: var(--accent); color: #062b16;
-    font-size: 14px; font-weight: 800;
+  @keyframes pop { from { transform: scale(0.9); opacity: 0; } }
+  .join-modal .header {
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex; justify-content: space-between; align-items: center;
+    background: var(--surface-2);
   }
-  .modal .m-go:hover { filter: brightness(1.1); }
-  .modal .m-note { margin-top: 12px; text-align: center; font-size: 11px; color: var(--dim); }
+  .join-modal .header h2 { font-size: 17px; font-weight: 500; color: var(--text); }
+  .join-modal .close-btn {
+    border: none; background: transparent; color: var(--dim);
+    width: 32px; height: 32px; border-radius: 50%;
+    font-size: 20px;
+  }
+  .join-modal .close-btn:hover { background: var(--border); }
+  .join-modal .body { padding: 24px; }
+  .join-modal .body p {
+    color: var(--muted); font-size: 13px; line-height: 1.6; margin-bottom: 16px;
+  }
+  .join-modal .field { margin-bottom: 14px; }
+  .join-modal .field label {
+    display: block; font-size: 12px; color: var(--dim);
+    text-transform: uppercase; letter-spacing: 0.4px;
+    margin-bottom: 4px;
+  }
+  .join-modal .field input {
+    width: 100%; padding: 9px 12px;
+    border: 1px solid var(--border); border-radius: 6px;
+    background: var(--surface);
+    color: var(--text); font-size: 14px;
+    font-family: inherit;
+  }
+  .join-modal .field input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-tint); }
+  .join-modal .actions {
+    padding: 16px 24px; border-top: 1px solid var(--border);
+    display: flex; justify-content: flex-end; gap: 8px;
+    background: var(--surface-2);
+  }
+  .join-modal .submit-btn {
+    padding: 9px 22px; border: none; border-radius: 999px;
+    background: var(--accent); color: #fff;
+    font-weight: 600; font-size: 14px;
+  }
+  .join-modal .submit-btn:hover { background: var(--accent-strong); }
+  .join-modal .cancel-btn {
+    padding: 9px 22px; border-radius: 999px;
+    border: 1px solid var(--border); background: transparent; color: var(--dim);
+    font-size: 14px;
+  }
 
+  /* ==== toast ==== */
   .toast {
-    position: fixed; bottom: 22px; right: 22px; z-index: 40;
-    background: var(--panel); border: 1px solid var(--border);
-    border-left: 4px solid var(--accent);
-    border-radius: 10px; padding: 13px 18px;
-    font-size: 13px; max-width: 340px;
-    box-shadow: 0 14px 40px rgba(0,0,0,0.5);
+    position: fixed; bottom: 24px; left: 24px; z-index: 60;
+    background: var(--text); color: #fff;
+    border-radius: 4px;
+    padding: 14px 20px;
+    font-size: 14px;
+    box-shadow: var(--shadow-lg);
     display: none; animation: slidein 0.3s ease;
   }
-  @keyframes slidein { from { transform: translateX(30px); opacity: 0; } }
+  @keyframes slidein { from { transform: translateY(20px); opacity: 0; } }
   .toast.on { display: block; }
   .toast .t-title { font-weight: 700; margin-bottom: 3px; }
-  .toast .t-body { color: var(--muted); font-size: 12.5px; }
+  .toast .t-body { opacity: 0.85; font-size: 13px; }
 
   a { color: var(--accent); text-decoration: none; }
   a:hover { text-decoration: underline; }
 
-  @media (max-width: 900px) {
-    .mail-list { width: 260px; }
-    .mail-view { padding: 20px 18px 40px; }
+  @media (max-width: 1100px) {
+    .gmail-rail { width: 220px; }
+    .mail-list { width: 340px; }
   }
 </style>
 </head>
 <body>
 
-<header>
-  <div class="brand">
-    <span class="logo">🥬 <span class="k">kimchi</span> workshop</span>
-    <span class="tag">— the task-api incident</span>
+<!-- Top Gmail-style header -->
+<header class="gmail-top">
+  <button class="hamburger" aria-label="menu" title="menu">
+    <svg width="20" height="20" viewBox="0 0 24 24"><path fill="currentColor" d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+  </button>
+  <div class="brand-lockup">
+    <div class="brand-logo">
+      <span class="mark">K</span>
+      <span>Kimchi</span>
+    </div>
   </div>
-  <div class="spacer"></div>
-  <div class="handle-pill" id="handlePill">
-    <span class="dot"></span>
-    <input id="handleInput" placeholder="your github handle" autocomplete="off" spellcheck="false">
-    <div class="handle-cue" id="handleCue" style="display:none">⬆ put your GitHub handle here to get your mail</div>
+  <div class="search-strip" aria-hidden="true">
+    <button class="search-icon" aria-label="search" title="search">
+      <svg width="20" height="20" viewBox="0 0 24 24"><path fill="currentColor" d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zM9.5 14C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+    </button>
+    <input type="text" placeholder="Search mail and participants" id="globalSearch" aria-label="search mail">
+    <button class="toggle-search-icon" aria-label="clear" title="filter options">
+      <svg width="20" height="20" viewBox="0 0 24 24"><path fill="currentColor" d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z"/></svg>
+    </button>
   </div>
-  <button class="help-btn" id="helpBtn" title="what is this?">?</button>
+  <div class="top-right">
+    <button class="icon-btn" title="help" onclick="showAbout()">?</button>
+    <div class="profile-chip" id="profileChip">
+      <div class="avatar-pic"><img id="myAvatar" src="https://randomuser.me/api/portraits/lego/1.jpg" alt="" /></div>
+      <input id="handleInput" placeholder="your github handle" autocomplete="off" spellcheck="false">
+    </div>
+  </div>
 </header>
 
-<div class="layout">
-  <nav class="rail">
-    <button class="rail-item active" data-view="inbox"><span class="ico">📬</span>Inbox<span class="badge" id="unreadBadge" style="display:none">0</span></button>
-    <button class="rail-item" data-view="board"><span class="ico">🏆</span>Leaderboard</button>
-    <button class="rail-item" id="railRepo"><span class="ico">🗂️</span>Repo</button>
-    <div class="rail-bottom">
-      <button class="rail-item" id="railAbout"><span class="ico">❓</span>About</button>
+<!-- Gmail-style body: rail + workspace -->
+<div class="gmail-body">
+
+  <nav class="gmail-rail">
+    <button class="compose-btn" id="composeJoinBtn" title="join the workshop">
+      <span class="ico">+</span> Join event
+    </button>
+
+    <div class="rail-nav">
+      <button class="rail-nav-item active" data-view="inbox">
+        <span class="ico">📥</span> Inbox
+        <span class="badge" id="unreadBadge" style="display:none">0</span>
+      </button>
+      <button class="rail-nav-item" data-view="board">
+        <span class="ico">🏆</span> Leaderboard
+      </button>
+      <button class="rail-nav-item" id="railRepo">
+        <span class="ico">🗂️</span> Repository
+      </button>
+      <button class="rail-nav-item" id="railAbout">
+        <span class="ico">ℹ️</span> About
+      </button>
     </div>
+
+    <div class="rail-bottom"></div>
   </nav>
 
-  <div class="mail-list" id="mailList">
-    <div class="mail-list-header"><span>Briefings</span><span id="mailCount"></span></div>
-    <div id="mailCards"></div>
-  </div>
+  <div class="gmail-center">
 
-  <div class="reader" id="reader">
-    <div class="reader-empty" id="readerEmpty">
-      <div class="big">📥</div>
-      <div class="cap">No message selected</div>
-      <div class="cap" style="font-size:12px">New here? Start with the first briefing, top of the list on the left.<br>Then set your GitHub handle top-right so your personal mail finds you.</div>
+    <div class="mail-list" id="mailList">
+      <div class="mail-list-header"><span>Briefings</span><span id="mailCount"></span></div>
+      <div id="mailCards"></div>
     </div>
-  </div>
 
-  <div class="board-wrap" id="boardWrap">
-    <div class="board-inner">
-      <div class="controls">
-        <div>
-          <label for="event">Event</label>
-          <select id="event"></select>
-        </div>
-        <div>
-          <label for="topn">Show</label>
-          <select id="topn">
-            <option value="10">Top 10</option>
-            <option value="20">Top 20</option>
-            <option value="50">Top 50</option>
-            <option value="all" selected>All</option>
-          </select>
-        </div>
-        <div>
-          <label for="search">Find participant</label>
-          <input type="search" id="search" placeholder="handle">
-        </div>
-        <div class="meta">
-          <div id="updated">loading…</div>
-          <div id="count"></div>
+    <div class="reader" id="reader">
+      <div class="reader-empty" id="readerEmpty">
+        <div class="big">📧</div>
+        <div class="cap">
+          No message selected.<br>
+          Join the workshop event from the left rail, then start with the first briefing.
         </div>
       </div>
-      <table id="boardTable" style="display:none">
-        <thead>
-          <tr>
-            <th class="rank">#</th>
-            <th>Participant</th>
-            <th>PR</th>
-            <th>Tests</th>
-            <th>Cost</th>
-            <th>Points</th>
-          </tr>
-        </thead>
-        <tbody id="rows"></tbody>
-      </table>
-      <div class="empty" id="empty">
-        No accepted submissions yet for this event.<br><br>
-        Submissions are scored on their PR, ranked on accept, and the PR
-        is closed unmerged — the repo stays pristine for the next engineer.
+    </div>
+
+    <div class="board-wrap" id="boardWrap">
+      <div class="board-inner">
+        <div class="controls">
+          <div>
+            <label for="event">Event</label>
+            <select id="event"></select>
+          </div>
+          <div>
+            <label for="topn">Show</label>
+            <select id="topn">
+              <option value="10">Top 10</option>
+              <option value="20">Top 20</option>
+              <option value="50">Top 50</option>
+              <option value="all" selected>All</option>
+            </select>
+          </div>
+          <div>
+            <label for="search">Find participant</label>
+            <input type="search" id="search" placeholder="handle">
+          </div>
+          <div class="meta">
+            <div id="updated">loading…</div>
+            <div id="count"></div>
+          </div>
+        </div>
+        <table id="boardTable" style="display:none">
+          <thead>
+            <tr>
+              <th class="rank">#</th>
+              <th>Participant</th>
+              <th>PR</th>
+              <th>Tests</th>
+              <th>Cost</th>
+              <th>Points</th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+        <div class="empty" id="empty">
+          No accepted submissions yet for this event.<br><br>
+          Join via the "+" button in the left rail, work through the briefings, then fork the repo and submit a PR.
+        </div>
+        <div class="bfoot">
+          <span>Points = tests×10 + review×50 + efficiency. Output first, cost second.</span>
+          <span>auto-refreshes every 60s</span>
+        </div>
       </div>
-      <div class="bfoot">
-        <span>Points = tests×10 + review×50 + efficiency. Output first, cost second.</span>
-        <span>auto-refreshes every 60s</span>
+    </div>
+
+  </div>
+</div>
+
+<!-- ==== join modal (compose-style) ==== -->
+<div class="join-overlay" id="joinModal">
+  <div class="join-modal" role="dialog" aria-label="Join the workshop">
+    <div class="header">
+      <h2>Join the workshop event</h2>
+      <button class="close-btn" id="joinClose">&times;</button>
+    </div>
+    <div class="body">
+      <p>
+        Submitting this creates a GitHub issue with your registration.
+        The facilitator's active event code is required — ask them for it.
+        Your GitHub handle here is the one your credits and leaderboard
+        rows attach to.
+      </p>
+      <div class="field">
+        <label for="joinName">Full name</label>
+        <input id="joinName" placeholder="Janet Kestrel">
       </div>
+      <div class="field">
+        <label for="joinDesig">Designation</label>
+        <input id="joinDesig" placeholder="Senior SRE">
+      </div>
+      <div class="field">
+        <label for="joinOrg">Organization</label>
+        <input id="joinOrg" placeholder="Acme Corp">
+      </div>
+      <div class="field">
+        <label for="joinEmail">Work email</label>
+        <input id="joinEmail" placeholder="janet@example.com">
+      </div>
+      <div class="field">
+        <label for="joinEvent">Event code</label>
+        <input id="joinEvent" placeholder="provided by facilitator">
+      </div>
+      <p style="font-size:12px;color:var(--dim);margin-top:6px">
+        Note: Submitting confirms you accept the workshop's
+        credit-issuance policy. Your email goes to
+        <code>.github/workflows/join.yml</code> via GitHub Issues —
+        it never posts to any third party.
+      </p>
+    </div>
+    <div class="actions">
+      <button class="cancel-btn" id="joinCancel">Cancel</button>
+      <button class="submit-btn" id="joinSubmit">Submit via GitHub</button>
     </div>
   </div>
 </div>
 
-<div class="modal-overlay" id="modal">
-  <div class="modal">
-    <div class="m-ico">📬</div>
-    <h3>You've got mail. Four of them.</h3>
-    <p>
-      The task-api service went down yesterday. The fix attempt made it worse.
-      The previous lead just handed the incident — and the company — to you.
-    </p>
-    <p>
-      Your colleagues left briefings in your inbox: what broke, where the
-      spec lives, how to submit, and how not to let the agent drive you.
-      Read them before you clone anything.
-    </p>
-    <button class="m-go" id="modalGo">Go to Inbox →</button>
-    <div class="m-note">This shows once. Your inbox is always in the left rail.</div>
+<!-- About modal -->
+<div class="join-overlay" id="aboutModal">
+  <div class="join-modal" role="dialog" aria-label="About">
+    <div class="header">
+      <h2>You've got mail. Four of them.</h2>
+      <button class="close-btn" id="aboutClose">&times;</button>
+    </div>
+    <div class="body">
+      <p>
+        The task-api service went down yesterday. The fix attempt made it worse.
+        The previous lead just handed the incident — and the company — to you.
+      </p>
+      <p>
+        Your colleagues left briefings in your inbox: what broke, where the
+        spec lives, how to submit, and how not to let the agent drive you.
+        Click "Join event" in the left rail to register with the facilitator's
+        event code, then read the briefings in order.
+      </p>
+    </div>
+    <div class="actions">
+      <a class="btn" href="https://github.com/castai/kimchi-workshop" target="_blank" rel="noopener">Open the repo</a>
+      <button class="submit-btn" id="aboutGo">Got it</button>
+    </div>
   </div>
 </div>
 
@@ -418,30 +694,46 @@
 
 const REPO_URL = "https://github.com/castai/kimchi-workshop";
 const LS_HANDLE = "kimchi.handle";
-const LS_SEEN_MODAL = "kimchi.seenOnboarding.v1";
+const LS_SEEN_MODAL = "kimchi.seenOnboarding.v2";
 const LS_READ = "kimchi.readEmails.v1";
+
+/* real profile-image pool for the cast (randomuser.me, hotlinkable CC0-style) */
+const AVATAR_POOL = {
+  "Sam Carter": "https://randomuser.me/api/portraits/men/22.jpg",
+  "Alex Rivera": "https://randomuser.me/api/portraits/men/83.jpg",
+  "Jordan Patel": "https://randomuser.me/api/portraits/men/32.jpg",
+  "Casey Kim": "https://randomuser.me/api/portraits/women/85.jpg",
+  "bottest": "https://randomuser.me/api/portraits/men/54.jpg",
+  "kimchi-workshop-bot": "https://randomuser.me/api/portraits/lego/1.jpg",
+};
+function avatarFor(senderName) {
+  return AVATAR_POOL[senderName] ||
+    `https://ui-avatars.com/api/?name=${encodeURIComponent(senderName)}&background=0b57d0&color=fff&size=64`;
+}
 
 const MAIL = [];
 const readSet = new Set(JSON.parse(localStorage.getItem(LS_READ) || "[]"));
 let selectedId = null;
 
-/* ================= handle ================= */
 const handleInput = document.getElementById("handleInput");
-const handlePill = document.getElementById("handlePill");
-const handleCue = document.getElementById("handleCue");
+const profileChip = document.getElementById("profileChip");
+const myAvatar = document.getElementById("myAvatar");
 handleInput.value = localStorage.getItem(LS_HANDLE) || "";
-function syncPill() {
-  const has = !!handleInput.value.trim();
-  handlePill.classList.toggle("active", has);
-  const needsCue = !has && localStorage.getItem(LS_SEEN_MODAL);
-  handlePill.classList.toggle("needs-handle", needsCue);
-  handleCue.style.display = needsCue ? "block" : "none";
+function syncHandleChip() {
+  const h = handleInput.value.trim();
+  const has = !!h;
+  profileChip.classList.toggle("placeholder-set", !has && localStorage.getItem(LS_SEEN_MODAL));
+  if (has) {
+    myAvatar.src = `https://github.com/${encodeURIComponent(h)}.png?size=64`;
+  } else {
+    myAvatar.src = "https://randomuser.me/api/portraits/lego/1.jpg";
+  }
 }
-syncPill();
+syncHandleChip();
 let personalLoadedFor = null;
 handleInput.addEventListener("change", () => {
   localStorage.setItem(LS_HANDLE, handleInput.value.trim());
-  syncPill();
+  syncHandleChip();
   maybeLoadPersonal(true);
   renderBoard();
 });
@@ -449,10 +741,6 @@ handleInput.addEventListener("keydown", e => {
   if (e.key === "Enter") handleInput.blur();
 });
 
-/* ================= email data ================= */
-function initials(name) {
-  return name.split(/[\s-]+/).map(w => w[0]).join("").slice(0, 3).toUpperCase();
-}
 function snippet(body) {
   return (body || "").replace(/\n+/g, " ").slice(0, 90) + "…";
 }
@@ -466,12 +754,10 @@ async function loadStaticBriefings() {
     const res = await fetch("briefings/welcome.json?t=" + Date.now(), {cache: "no-store"});
     const data = await res.json();
     for (const e of data.emails) {
-      MAIL.push({ ...e, category: "briefing", snippet: snippet(e.body) });
+      MAIL.push({ ...e, category: e.category || "briefing", snippet: snippet(e.body) });
     }
-  } catch (e) { /* first deploy race — retry on next tick */ }
+  } catch (e) { /* retry next tick */ }
   renderList();
-  // if the user dismissed onboarding before briefings arrived, open the
-  // first one now so nobody sits on the empty pane
   if (localStorage.getItem(LS_SEEN_MODAL) && !selectedId && MAIL.length) {
     openMail(MAIL[0].id);
   }
@@ -501,16 +787,15 @@ async function maybeLoadPersonal(force) {
     if (added) {
       sortMail();
       renderList();
-      toast("📬 New mail", `${added} message${added > 1 ? "s" : ""} arrived for @${esc(handle)}.`);
+      toast(`📬 New mail`, `${added} message${added > 1 ? "s" : ""} arrived for @${esc(handle)}.`);
     }
-  } catch (e) { /* no personal inbox yet */ }
+  } catch (e) { /* none yet */ }
 }
 
 function sortMail() {
   MAIL.sort((a, b) => String(a.timestamp).localeCompare(String(b.timestamp)));
 }
 
-/* ================= list ================= */
 function renderList() {
   const box = document.getElementById("mailCards");
   if (!MAIL.length) {
@@ -524,16 +809,16 @@ function renderList() {
     return `
       <div class="mail-card ${unread ? "unread" : ""} ${selectedId === m.id ? "selected" : ""}" data-id="${esc(m.id)}">
         ${unread ? '<span class="unread-dot"></span>' : ""}
-        <div class="avatar" style="background:${esc(m.from.bg || "#374151")}">${esc(initials(m.from.name))}</div>
+        <div class="avatar-pic"><img alt="" src="${esc(avatarFor(m.from.name))}" /></div>
         <div class="mm">
-          <div class="row1">
-            <span class="sender">${esc(m.from.name)}</span>
-            <span class="cat">${esc(m.category)}</span>
-            <span class="time">${esc(shortTime(m.timestamp))}</span>
-          </div>
-          <div class="one-line">
-            <span class="subject">${esc(m.subject)}</span>
-            <span class="snippet">${esc(m.snippet)}</span>
+          <div style="flex:1;min-width:0">
+            <div class="sender">${esc(m.from.name)}</div>
+            <div class="subject">${esc(m.subject)}</div>
+            <div class="row2">
+              <span class="snippet">${esc(m.snippet)}</span>
+              <span class="cat">${esc(m.category)}</span>
+              <span class="time">${esc(shortTime(m.timestamp))}</span>
+            </div>
           </div>
         </div>
       </div>`;
@@ -543,19 +828,15 @@ function renderList() {
   });
   updateUnreadBadge();
 }
+
 function localTime(ts) {
   const m = String(ts).match(/(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})/);
   if (!m) return ts;
   const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]));
   if (isNaN(d)) return ts;
-  return d.toLocaleString(undefined, {
-    year: "numeric", month: "short", day: "numeric",
-    hour: "2-digit", minute: "2-digit",
-  });
+  return d.toLocaleString(undefined, { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 function shortTime(ts) {
-  // timestamps arrive as "2026-10-26 11:47 UTC" or ISO — render relative,
-  // in the reader's local timezone, like a real mail client
   const m = String(ts).match(/(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})/);
   if (!m) return ts;
   const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]));
@@ -573,12 +854,11 @@ function shortTime(ts) {
 function updateUnreadBadge() {
   const unread = MAIL.filter(m => !readSet.has(m.id)).length;
   const b = document.getElementById("unreadBadge");
-  b.style.display = unread ? "flex" : "none";
+  b.style.display = unread ? "" : "none";
   b.textContent = unread;
   document.title = (unread ? `(${unread}) ` : "") + "Kimchi Workshop — Inbox";
 }
 
-/* ================= reader ================= */
 function openMail(id) {
   const m = MAIL.find(x => x.id === id);
   if (!m) return;
@@ -587,13 +867,12 @@ function openMail(id) {
   localStorage.setItem(LS_READ, JSON.stringify([...readSet]));
   renderList();
   showView("inbox");
-
   document.getElementById("reader").innerHTML = `
     <div class="mail-view">
-      <div class="subject-big">${esc(m.subject)}</div>
+      <div class="subject-line">${esc(m.subject)}</div>
       <div class="catline"><span class="catpill">${esc(m.category)}</span></div>
       <div class="mail-head">
-        <div class="avatar" style="background:${esc(m.from.bg || "#374151")}">${esc(initials(m.from.name))}</div>
+        <div class="avatar-pic"><img alt="" src="${esc(avatarFor(m.from.name))}" /></div>
         <div class="who">
           <div class="name">${esc(m.from.name)}</div>
           <div class="role">${esc(m.from.role || "")}</div>
@@ -607,17 +886,12 @@ function openMail(id) {
 
 function renderBody(body) {
   let t = esc(body || "");
-  // images (gifs etc.) — markdown ![alt](url)
   t = t.replace(/!\[([^\]]*)\]\((https?:\/\/[^)]+)\)/g,
     '<img alt="$1" src="$2" style="max-width:100%;border-radius:8px;margin:10px 0;display:block">');
-  // H2 / H3 headers inline since emails come with markdown from the workflow
-  t = t.replace(/^### (.+)$/gm, '<div style="font-size:15px;font-weight:700;margin:14px 0 6px;color:var(--text)">$1</div>');
-  t = t.replace(/^## (.+)$/gm, '<div style="font-size:17px;font-weight:800;margin:16px 0 8px;color:var(--text)">$1</div>');
-  // bold
-  t = t.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-  // inline code
-  t = t.replace(/`([^`]+)`/g, '<code style="background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:1px 5px;font-size:12px">$1</code>');
-  // unordered-list bullets: lines starting with "- " get a disc
+  t = t.replace(/^### (.+)$/gm, '<div style="font-size:15px;font-weight:600;margin:14px 0 6px;color:var(--text)">$1</div>');
+  t = t.replace(/^## (.+)$/gm, '<div style="font-size:17px;font-weight:600;margin:16px 0 8px;color:var(--text)">$1</div>');
+  t = t.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+  t = t.replace(/`([^`]+)`/g, '<code>$1</code>');
   t = t.replace(/^- (.+)$/gm, '<div style="padding-left:14px;margin:2px 0">• $1</div>');
   return t;
 }
@@ -625,35 +899,34 @@ function renderBody(body) {
 function actionButtons(m) {
   const btns = [];
   if (m.id === "incident-brief") {
-    btns.push(`<a class="btn primary" href="${REPO_URL}" target="_blank" rel="noopener">🗂️ Open the repo</a>`);
-    btns.push(`<a class="btn" href="${REPO_URL}/blob/challenge/PRODUCTION-INCIDENT.md" target="_blank" rel="noopener">📄 Full incident report</a>`);
+    btns.push(`<a class="btn primary" href="${REPO_URL}" target="_blank" rel="noopener">Open the repo</a>`);
+    btns.push(`<a class="btn" href="${REPO_URL}/blob/challenge/PRODUCTION-INCIDENT.md" target="_blank" rel="noopener">Full incident report</a>`);
   }
   if (m.id === "submission-lifecycle") {
-    btns.push(`<a class="btn primary" href="${REPO_URL}/fork" target="_blank" rel="noopener">🍴 Fork and start</a>`);
-    btns.push(`<a class="btn" href="https://app.kimchi.dev/usage" target="_blank" rel="noopener">💳 Usage console</a>`);
+    btns.push(`<a class="btn primary" href="${REPO_URL}/fork" target="_blank" rel="noopener">Fork and start</a>`);
+    btns.push(`<a class="btn" href="https://app.kimchi.dev/usage" target="_blank" rel="noopener">Usage console</a>`);
   }
   if (m.category === "production" && m.pr_url) {
-    btns.push(`<a class="btn primary" href="${esc(m.pr_url)}" target="_blank" rel="noopener">📊 Open your PR</a>`);
+    btns.push(`<a class="btn primary" href="${esc(m.pr_url)}" target="_blank" rel="noopener">Open your PR</a>`);
   }
   if (m.category === "score") {
-    btns.push(`<button class="btn primary" onclick="document.querySelector('[data-view=board]').click()">🏆 See leaderboard</button>`);
+    btns.push(`<button class="btn primary" onclick="document.querySelector('[data-view=board]').click()">See leaderboard</button>`);
   }
   const out = [];
   if (btns.length) out.push(`<div class="mail-actions">${btns.join("")}</div>`);
   const next = nextStepFor(m);
   if (next) {
-    out.push(`<div style="margin-top:18px;padding:12px 16px;border:1px dashed var(--border);border-radius:10px;font-size:12.5px;color:var(--muted)">
-      <span style="color:var(--accent);font-weight:700">→ next:</span> ${next}
+    out.push(`<div style="margin-top:18px;padding:12px 16px;border:1px dashed var(--border);border-radius:8px;font-size:12.5px;color:var(--dim);background:var(--surface-2)">
+      <span style="color:var(--accent);font-weight:600">→ next:</span> ${next}
     </div>`);
   }
   return out.join("");
 }
 
-// ordered briefing ids: incident -> spec -> submit -> agent-craft -> (then fork)
 const FLOW_ORDER = ["incident-brief", "spec-docstrings", "submission-lifecycle", "kimchi-cadence"];
 function nextStepFor(m) {
   if (m.personal || m.category === "production" || m.category === "score") {
-    if (m.category === "score") return null; // finished state
+    if (m.category === "score") return null;
     return "Fix what production flagged, push to your branch — CI re-runs automatically. Then set nothing; your next mail arrives here when the story updates.";
   }
   const i = FLOW_ORDER.indexOf(m.id);
@@ -662,12 +935,10 @@ function nextStepFor(m) {
     const n = MAIL.find(x => x.id === FLOW_ORDER[i + 1]);
     return n ? `read <a href="javascript:void(0)" onclick="openMail('${n.id}')">${esc(n.subject)}</a>${i + 1 < FLOW_ORDER.length - 1 ? "" : " (last one before you start)"}` : null;
   }
-  // last briefing: point at the fork
   return `set your GitHub handle top-right if you haven't, then <a href="${REPO_URL}/fork" target="_blank" rel="noopener">fork the repo</a> and get to work.`;
 }
 
-/* ================= view switch ================= */
-const railItems = document.querySelectorAll(".rail-item[data-view]");
+const railItems = document.querySelectorAll(".rail-nav-item[data-view]");
 railItems.forEach(b => b.addEventListener("click", () => {
   railItems.forEach(x => x.classList.remove("active"));
   b.classList.add("active");
@@ -681,37 +952,61 @@ function showView(view) {
   if (!inbox && !window.__board) loadBoard();
 }
 document.getElementById("railRepo").addEventListener("click", () => window.open(REPO_URL, "_blank"));
-document.getElementById("railAbout").addEventListener("click", () => {
-  document.getElementById("modal").classList.add("on");
-});
-document.getElementById("helpBtn").addEventListener("click", () => {
-  document.getElementById("modal").classList.add("on");
-});
+document.getElementById("railAbout").addEventListener("click", () => openModal("aboutModal"));
 
-/* ================= modal ================= */
-document.getElementById("modalGo").addEventListener("click", () => {
-  document.getElementById("modal").classList.remove("on");
+function showAbout() { openModal("aboutModal"); }
+
+/* ---------- join modal ---------- */
+function openModal(id) {
+  document.getElementById(id).classList.add("on");
+}
+function closeModal(id) {
+  document.getElementById(id).classList.remove("on");
+}
+document.getElementById("joinClose").addEventListener("click", () => closeModal("joinModal"));
+document.getElementById("joinCancel").addEventListener("click", () => closeModal("joinModal"));
+document.getElementById("aboutClose").addEventListener("click", () => closeModal("aboutModal"));
+document.getElementById("aboutGo").addEventListener("click", () => {
+  closeModal("aboutModal");
   localStorage.setItem(LS_SEEN_MODAL, "1");
-  syncPill();
-  // guide straight into the first briefing so nobody lands on an empty pane
+  syncHandleChip();
   if (MAIL.length && !selectedId) openMail(MAIL[0].id);
 });
-if (!localStorage.getItem(LS_SEEN_MODAL)) {
-  setTimeout(() => document.getElementById("modal").classList.add("on"), 600);
-}
 
-/* ================= toast ================= */
-let toastTimer = null;
-function toast(title, body) {
-  document.getElementById("toastTitle").textContent = title;
-  document.getElementById("toastBody").innerHTML = body;
-  const t = document.getElementById("toast");
-  t.classList.add("on");
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.classList.remove("on"), 5000);
-}
+document.getElementById("composeJoinBtn").addEventListener("click", () => {
+  openModal("joinModal");
+  document.getElementById("joinName").focus();
+});
 
-/* ================= leaderboard ================= */
+document.getElementById("joinSubmit").addEventListener("click", () => {
+  const name  = document.getElementById("joinName").value.trim();
+  const desig = document.getElementById("joinDesig").value.trim();
+  const org   = document.getElementById("joinOrg").value.trim();
+  const email = document.getElementById("joinEmail").value.trim();
+  const code  = document.getElementById("joinEvent").value.trim();
+  if (!name || !desig || !org || !email || !code) {
+    toast("Missing fields", "All fields are required.");
+    return;
+  }
+  const issueTitle = `[join] ${name}`;
+  const issueBody = [
+    `### Full name`, name, "",
+    `### Designation`, desig, "",
+    `### Organization`, org, "",
+    `### Work email`, email, "",
+    `### Event code`, code, "",
+    `### GitHub handle`, handleInput.value.trim() || "self-submitted",
+  ].join("\n");
+  const url = `https://github.com/${'castai/kimchi-workshop'}/issues/new?` +
+    `title=${encodeURIComponent(issueTitle)}` +
+    `&body=${encodeURIComponent(issueBody)}` +
+    `&labels=join`;
+  window.open(url, "_blank");
+  toast("Opening GitHub", "Sign in with your GitHub account, then click 'Submit new issue'.");
+  closeModal("joinModal");
+});
+
+/* ---------- leaderboard ---------- */
 const CONFIG_URL = "config.json";
 const BOARD_URL = "leaderboard.json";
 
@@ -732,7 +1027,6 @@ async function loadBoard() {
     return;
   }
   window.__board = board;
-
   const evSel = document.getElementById("event");
   const keep = evSel.value;
   const names = Object.keys(board.events || {}).sort();
@@ -741,7 +1035,6 @@ async function loadBoard() {
     .map(n => `<option value="${esc(n)}" ${n === defaultEvent ? "selected" : ""}>${esc(n)}</option>`)
     .join("");
   if (keep && names.includes(keep)) evSel.value = keep;
-
   renderBoard();
 }
 
@@ -752,25 +1045,31 @@ function renderBoard() {
   const topn = document.getElementById("topn").value;
   const q = document.getElementById("search").value.trim().toLowerCase();
   const me = handleInput.value.trim().toLowerCase();
-
   let rows = (board.events[ev] || {}).rows || [];
   if (q) rows = rows.filter(r =>
     (r.attendee || "").toLowerCase().includes(q) ||
     (r.github || "").toLowerCase().includes(q));
   if (topn !== "all") rows = rows.slice(0, parseInt(topn, 10));
-
   const medals = {1: "🥇", 2: "🥈", 3: "🥉"};
   const max = Math.max(...rows.map(r => r.points || 0), 1);
   document.getElementById("rows").innerHTML = rows.map(r => {
     const isMe = me && ((r.github || "").toLowerCase() === me || (r.attendee || "").toLowerCase() === me);
+    const avatar = r.avatar_url || (r.github
+      ? `https://github.com/${encodeURIComponent(r.github)}.png?size=48`
+      : "https://randomuser.me/api/portraits/lego/2.jpg");
     return `
     <tr class="${isMe ? "me" : ""}">
       <td class="rank rank-${r.rank <= 3 ? r.rank : ""}">
         <span class="medal">${medals[r.rank] || ""}</span>${r.rank}
       </td>
       <td>
-        <div class="handle">${esc(r.attendee || "?")}</div>
-        <div class="gh">${r.github ? "@" + esc(r.github) : ""}</div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <img alt="" src="${esc(avatar)}" style="width:32px;height:32px;border-radius:50%;object-fit:cover"/>
+          <div>
+            <div class="handle">${esc(r.attendee || "?")}</div>
+            <div class="gh">${r.github ? "@" + esc(r.github) : ""}</div>
+          </div>
+        </div>
       </td>
       <td>${r.pr_url ? `<a href="${esc(r.pr_url)}" target="_blank" rel="noopener">#${r.pr}</a>` : (r.pr || "")}</td>
       <td>
@@ -783,7 +1082,6 @@ function renderBoard() {
       </td>
     </tr>`;
   }).join("");
-
   const total = ((board.events[ev] || {}).rows || []).length;
   const hasRows = rows.length > 0;
   document.getElementById("empty").style.display = hasRows ? "none" : "block";
@@ -801,10 +1099,24 @@ document.getElementById("event").addEventListener("change", renderBoard);
 document.getElementById("topn").addEventListener("change", renderBoard);
 document.getElementById("search").addEventListener("input", renderBoard);
 
-/* ================= boot ================= */
-loadStaticBriefings();
-maybeLoadPersonal(false);
-setInterval(() => { maybeLoadPersonal(true); if (window.__board) loadBoard(); }, 60000);
+let toastTimer = null;
+function toast(title, body) {
+  document.getElementById("toastTitle").textContent = title;
+  document.getElementById("toastBody").innerHTML = body;
+  const t = document.getElementById("toast");
+  t.classList.add("on");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove("on"), 5000);
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  loadStaticBriefings();
+  maybeLoadPersonal(false);
+  if (!localStorage.getItem(LS_SEEN_MODAL)) {
+    setTimeout(() => openModal("aboutModal"), 800);
+  }
+  setInterval(() => { maybeLoadPersonal(true); if (window.__board) loadBoard(); }, 60000);
+});
 </script>
 </body>
 </html>
