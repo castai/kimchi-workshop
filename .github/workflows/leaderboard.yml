@@ -79,14 +79,26 @@ jobs:
           start_time_iso = pdata.get("start_time") or row.get("submitted_at")
 
           # ---- Production score (from production-log artifact)
+          # The framed email log gets rewritten by Kimchi and may NOT carry the
+          # literal "Production score: X/Y" header anymore. Match several common
+          # shapes:
+          #   "Production score: 16/26"
+          #   "**16/26 checks green.**"
+          #   "16/26 checks green"
           prod_passed, prod_total = 0, 0
           prod_log = "download/prod_log.md"
           if os.path.exists(prod_log):
               with open(prod_log) as f:
                   md = f.read()
-              m = re.search(r"Production score: (\d+)/(\d+)", md)
-              if m:
-                  prod_passed, prod_total = int(m.group(1)), int(m.group(2))
+              for pattern in (
+                  r"Production score:\s*(\d+)/(\d+)",
+                  r"\*\*(\d+)/(\d+)\s+checks?\s+green\.\*\*",
+                  r"\b(\d+)/(\d+)\s+checks?\s+green\b",
+              ):
+                  m = re.search(pattern, md)
+                  if m:
+                      prod_passed, prod_total = int(m.group(1)), int(m.group(2))
+                      break
           row["production_passed"] = prod_passed
           row["production_total"] = prod_total
 
