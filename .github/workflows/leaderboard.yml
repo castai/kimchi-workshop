@@ -103,60 +103,119 @@ jobs:
           row["production_total"] = prod_total
 
           # ---- Kimchi usage CSV (real models, requests, cost)
-          csv_cost, csv_requests, csv_models, csv_rows = 0.0, 0, [], 0
-          head_repo = os.environ.get("HEAD_REPO", "")
-          head_branch = os.environ.get("HEAD_BRANCH", "")
-          if head_repo and head_branch:
-              url = (
-                  "https://raw.githubusercontent.com/%s/%s/kimchi-usage.csv"
-                  % (head_repo, head_branch)
-              )
+          # Look at the branch top level first; fall back to comment attachments
+          # on the same PR (facilitator-or-participant pasted link).
+          def _fetch_and_parse(url):
               req = Request(url, headers={
                   "User-Agent": "kimchi-workshop-bot/1.0",
                   "Accept": "text/csv,*/*;q=0.8",
               })
+              with urlopen(req, timeout=15) as r:
+                  raw = r.read()
+                  if raw[:2] == b"\x1f\x8b":
+                      import gzip
+                      raw = gzip.decompress(raw)
+              rows = list(csv.reader(io.StringIO(raw.decode())))
+              if not rows:
+                  return None
+              header = [h.strip().lower().replace(" ", "_") for h in rows[0]]
+              def col(*names):
+                  for n in names:
+                      if n in header:
+                          return header.index(n)
+                      for i, h in enumerate(header):
+                          if n in h:
+                              return i
+                  return None
+              cost_i = col("cost_usd", "cost", "spend_usd", "spend")
+              req_i = col("requests", "request_count", "api_calls")
+              model_i = col("model", "model_name")
+              total_cost, total_req, seen_models, n_rows = 0.0, 0, set(), 0
+              for dr in rows[1:]:
+                  n_rows += 1
+                  if cost_i is not None and cost_i < len(dr):
+                      try:
+                          total_cost += float(dr[cost_i] or 0)
+                      except ValueError:
+                          pass
+                  if req_i is not None and req_i < len(dr):
+                      try:
+                          total_req += int(dr[req_i] or 0)
+                      except ValueError:
+                          pass
+                  if model_i is not None and model_i < len(dr) and dr[model_i]:
+                      seen_models.add(dr[model_i])
+              return {
+                  "cost": round(total_cost, 4),
+                  "requests": total_req,
+                  "models": sorted(seen_models),
+                  "rows": n_rows,
+              }
+
+          csv_cost, csv_requests, csv_models, csv_rows, csv_source = (
+              0.0, 0, [], 0, "none")
+          head_repo = os.environ.get("HEAD_REPO", "")
+          head_branch = os.environ.get("HEAD_BRANCH", "")
+          branch_url = (
+              "https://raw.githubusercontent.com/%s/%s/kimchi-usage.csv"
+              % (head_repo, head_branch)
+          )
+          parsed = None
+          if head_repo and head_branch:
               try:
-                  with urlopen(req, timeout=15) as r:
-                      raw = r.read()
-                      if raw[:2] == b"\x1f\x8b":
-                          import gzip
-                          raw = gzip.decompress(raw)
-                  rows = list(csv.reader(io.StringIO(raw.decode())))
-                  if rows:
-                      header = [h.strip().lower().replace(" ", "_")
-                                for h in rows[0]]
-                      def col(*names):
-                          for n in names:
-                              if n in header:
-                                  return header.index(n)
-                              for i, h in enumerate(header):
-                                  if n in h:
-                                      return i
-                          return None
-                      cost_i = col("cost_usd", "cost", "spend_usd", "spend")
-                      req_i = col("requests", "request_count", "api_calls")
-                      model_i = col("model", "model_name")
-                      seen_models = set()
-                      for dr in rows[1:]:
-                          if cost_i is not None and cost_i < len(dr):
-                              try:
-                                  csv_cost += float(dr[cost_i] or 0)
-                              except ValueError:
-                                  pass
-                          if req_i is not None and req_i < len(dr):
-                              try:
-                                  csv_requests += int(dr[req_i] or 0)
-                              except ValueError:
-                                  pass
-                          if model_i is not None and model_i < len(dr) \
-                                  and dr[model_i]:
-                              seen_models.add(dr[model_i])
-                      csv_models = sorted(seen_models)
-                      csv_rows = len(rows) - 1
+                  parsed = _fetch_and_parse(branch_url)
+                  if parsed:
+                      csv_source = "branch"
               except Exception as e:
-                  print("CSV pull failed:", e, file=sys.stderr)
+                  print("branch csv fetch failed:", e, file=sys.stderr)
+
+          if parsed is None:
+              # fall back to searching PR comments for a linked csv
+              try:
+                  out = subprocess.run(
+                      ["gh", "api",
+                       "repos/%s/issues/%s/comments" % (
+                           os.environ.get("GITHUB_REPOSITORY",
+                                          "castai/kimchi-workshop"),
+                           os.environ["PR_NUMBER"]),
+                       "--paginate",
+                       "--jq", ".[].body"],
+                      capture_output=True, text=True,
+                      env={**os.environ,
+                           "GH_TOKEN": os.environ.get("GITHUB_TOKEN", "")},
+                  ).stdout
+                  m = re.search(
+                      r"https://[^\s)\"']*/kimchi-usage\.csv[^\s)\"']*",
+                      out,
+                  )
+                  if m:
+                      parsed = _fetch_and_parse(m.group(0))
+                      if parsed:
+                          csv_source = "comment"
+              except Exception as e:
+                  print("comment csv fetch failed:", e, file=sys.stderr)
+
+          # Hard refusal: no CSV anywhere -> write a refusing record,
+          # DO NOT write to leaderboard. The facilitator will see this
+          # in the run logs; the participant already got a blocking
+          # auto-review comment.
+          if parsed is None or parsed["rows"] == 0:
+              refuse_note = os.path.join("records", "UNACCEPTED-%s.txt" % handle)
+              with open(refuse_note, "w") as f:
+                  f.write("Refused to accept %s on event %s: kimchi-usage.csv "
+                          "not present on branch top level nor in any PR "
+                          "comment attachment. Upload your CSV and re-label.\n"
+                          % (handle, row.get("event", "default")))
+              print(refuse_note)
+              sys.exit(1)
+
+          csv_cost = parsed["cost"]
+          csv_requests = parsed["requests"]
+          csv_models = parsed["models"]
+          csv_rows = parsed["rows"]
 
           row["csv_cost_total"] = round(csv_cost, 4)
+          row["csv_source"] = csv_source
           row["requests"] = csv_requests
           row["models_used"] = csv_models
           row["csv_rows"] = csv_rows
