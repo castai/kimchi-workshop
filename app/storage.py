@@ -25,7 +25,7 @@ class TaskStore:
             json.dump(data, f, indent=2)
 
     def _now(self):
-        return datetime.utcnow()
+        return datetime.now(timezone.utc)
 
     def gc_stale_tasks(self):
         """Remove tasks that have been open too long (over STALE_DAYS days).
@@ -146,4 +146,6 @@ def _iso(dt):
 
 
 def _parse(s):
-    return datetime.fromisoformat(s) if s else datetime.min
+    # datetime.min is naive; pair with timezone.utc so it compares
+    # cleanly against tz-aware stored timestamps (utcnow -> now(utc)).
+    return datetime.fromisoformat(s) if s else datetime.min.replace(tzinfo=timezone.utc)

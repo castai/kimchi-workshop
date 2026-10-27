@@ -4,7 +4,7 @@ Seed state: intentionally bad. Do not copy these patterns into anything real.
 """
 import os
 
-SECRET_KEY = os.environ.get("SECRET_KEY") or "dev-only-do-not-use-in-prod"
+SECRET_KEY = os.environ.get("SECRET_KEY") or "dev-fallback-not-a-credential"
 
 DEBUG = os.environ.get("DEBUG", "0") == "1"
 
