@@ -43,7 +43,6 @@ jobs:
           path: answers/
           token: ${{ secrets.ANSWERS_REPO_PAT }}
           persist-credentials: false
-          sparse-checkout: .verification
 
       - name: Run join registration
         id: reg
@@ -51,8 +50,9 @@ jobs:
           ANSWERS_REPO_PAT: ${{ secrets.ANSWERS_REPO_PAT }}
         run: |
           set -e
+          mkdir -p .verification
           cp answers/.verification/register_join.py .verification/register_join.py
-          OUT=$(python3 .verification/register_join.py 2>&1)
+          OUT=$(python3 .verification/register_join.py 2>&1) || true
           echo "$OUT"
           echo "$OUT" | grep -E '^(valid|handle|event_code|email|missing)=' | \
             while IFS='=' read -r k v; do
