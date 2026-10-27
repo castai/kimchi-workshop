@@ -78,12 +78,21 @@ jobs:
           cat prod_log.md
 
       - name: Frame production log as an email via Kimchi
+        if: always()
         env:
           KIMCHI_API_KEY: ${{ secrets.KIMCHI_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SRE_SENDER_NAME: ${{ steps.sender.outputs.name }}
+          SRE_TONE: ${{ steps.sender.outputs.tone }}
         continue-on-error: true
         run: |
           cp answers/.verification/frame_email.py .verification/frame_email.py
-          python3 .verification/frame_email.py prod_log.md prod_email_body.txt
+          python3 .verification/frame_email.py \
+            --input prod_log.md \
+            --output prod_email_body.txt \
+            --sender-name "$SRE_SENDER_NAME" \
+            --tone "$SRE_TONE" \
+          || cp prod_log.md prod_email_body.txt
 
       - name: Frame production log as a technical PR comment
         env:
@@ -132,10 +141,53 @@ jobs:
               body,
             });
 
+      - name: Pick rotating SRE sender
+        if: always()
+        id: sender
+        run: |
+          # Rotate through a 5-person SRE roster deterministically per commit.
+          # Each sender has a distinct voice and tone hint for the LLM.
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          FIRST_OCTET=$(( 16#${HEAD_SHA:0:2} ))
+          IDX=$(( FIRST_OCTET % 5 ))
+          case "$IDX" in
+            0)
+              NAME="Priya Nair"
+              BG="#5b2c6f"
+              TONE="formal, incident-review style, clipped sentences, methodical with a preference for bullet summaries"
+              ;;
+            1)
+              NAME="Marcus Webb"
+              BG="#1a5276"
+              TONE="dry sarcasm, conversational and blunt, mild exasperation at repeated mistakes"
+              ;;
+            2)
+              NAME="Ingrid Sorensen"
+              BG="#145a32"
+              TONE="engineering-calm, structured, prefers numbered lists, cuts directly to what matters"
+              ;;
+            3)
+              NAME="Derek Aoki"
+              BG="#7e5109"
+              TONE="enthusiastic and encouraging, generous with exclamation marks (no em dashes), celebrates small wins"
+              ;;
+            4)
+              NAME="Helena Vasquez"
+              BG="#7b241c"
+              TONE="terse, security-paranoid, no nonsense, treats every missed secret leak as a personal insult"
+              ;;
+          esac
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "bg=$BG" >> "$GITHUB_OUTPUT"
+          echo "tone=$TONE" >> "$GITHUB_OUTPUT"
+          echo "Picked SRE #$IDX: $NAME"
+
       - name: Publish production log to the participant's site inbox
         if: always()
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SRE_SENDER_NAME: ${{ steps.sender.outputs.name }}
+          SRE_SENDER_BG: ${{ steps.sender.outputs.bg }}
         run: |
           set -e
           git clone --branch gh-pages --depth 1 \
@@ -150,23 +202,21 @@ jobs:
           if [ ! -s "$BODY_FILE" ]; then
             printf 'The production run did not produce a report. The facilitator has been notified.\n' > "$BODY_FILE"
           fi
-          # append_personal_mail.py lives on the gh-pages branch itself
           test -f append_personal_mail.py
-          # unique id per commit so every push lands as a NEW email
           SHORT_SHA=$(echo "${{ github.event.pull_request.head.sha }}" | cut -c1-7)
           python3 append_personal_mail.py \
             --site-dir . \
             --handle "${{ github.event.pull_request.user.login }}" \
             --id "prod-log-pr-${{ github.event.pull_request.number }}-${SHORT_SHA}" \
-            --from-name "Alex Rivera" \
-            --from-role "Senior SRE" \
-            --from-bg "#0b5394" \
+            --from-name "$SRE_SENDER_NAME" \
+            --from-role "SRE on-call" \
+            --from-bg "$SRE_SENDER_BG" \
             --subject "Re: deployment - production is unhappy again" \
             --category production \
             --body-file "$BODY_FILE" \
             --pr-url "${{ github.event.pull_request.html_url }}"
           git add "personal/${{ github.event.pull_request.user.login }}.json"
-          git commit -m "Inbox: production report for @${{ github.event.pull_request.user.login }} (PR #${{ github.event.pull_request.number }})" || echo "nothing to commit"
+          git commit -m "Inbox: production report for @${{ github.event.pull_request.user.login }} (PR #${{ github.event.pull_request.number }}, by $SRE_SENDER_NAME)" || echo "nothing to commit"
           git push origin gh-pages
 
       - name: Upload production score
