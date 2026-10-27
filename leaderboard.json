@@ -1,35 +1,9 @@
 {
-  "generated_at": "2026-10-26T16:22:11.566090+00:00",
+  "generated_at": "2026-10-27T06:25:37.543356+00:00",
   "events": {
-    "bot-verify-2026-10-22": {
-      "rows": [
-        {
-          "attendee": "bottest",
-          "github": "kunalcast",
-          "event": "bot-verify-2026-10-22",
-          "pr": 1,
-          "pr_url": "https://github.com/castai/kimchi-workshop/pull/1",
-          "pr_title": "[submission] bottest - reference solution (kimchi-review verification)",
-          "status": "accepted",
-          "tests_passed": 26,
-          "tests_failed": 0,
-          "review_score": 0.0,
-          "cost_usd": 0.55,
-          "cost_self_reported": true,
-          "requests": 0,
-          "models_used": [],
-          "points": 274.5,
-          "submitted_at": "2026-10-22T11:20:14.064961+00:00",
-          "scoring_config": {
-            "budget_usd": 2.0
-          },
-          "production_passed": 0,
-          "production_total": 0,
-          "accepted_at": "2026-10-26T16:12:49.061065+00:00",
-          "rank": 1
-        }
-      ],
-      "count": 1
+    "TEST-001": {
+      "label": "Test workshop",
+      "rows": []
     }
   }
 }
