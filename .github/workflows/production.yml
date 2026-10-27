@@ -222,12 +222,41 @@ jobs:
           PROD_SCORE: ${{ steps.review.outputs.prod_score }}
         run: |
           set -e
+
+          # Find our prior verdict comment on this PR (if any) and delete it,
+          # so the new one carries a fresh timestamp + the current date headline
+          # instead of just updating in place. This way the participant's
+          # activity feed always shows the latest outcome with a date stamp.
+          find_prior() {
+            gh pr view "$PR_NUMBER" --repo "${{ github.repository }}" \
+              --json comments --jq '.comments[] | select(.author.login == "github-actions[bot]" and (.body | startswith("Auto-review") or startswith("Auto-accepted"))) | .id' \
+              | tail -1
+          }
+          PRIOR_ID=$(find_prior || true)
+          if [ -n "$PRIOR_ID" ]; then
+            gh api "repos/${{ github.repository }}/issues/comments/$PRIOR_ID" -X DELETE || echo "prior verdict delete skipped"
+          fi
+
+          # Compose the verdict body. Blocked bodies always carry a per-stage
+          # "fix N more" headline so the participant knows exactly how far they
+          # are from the new 15/26 production gate.
+          PROD_SCORE_INT=${PROD_SCORE:-0}
+          REQUIRED_PROD=15
+          REMAINING=$((REQUIRED_PROD - PROD_SCORE_INT))
+          if [ "$REMAINING" -lt 0 ]; then REMAINING=0; fi
+
           if [ "$ACCEPT" = "yes" ]; then
             gh pr label "$PR_NUMBER" --add accepted --repo "${{ github.repository }}" || true
-            printf 'Auto-accepted by the workshop bot.\n\n- Visible suite: %s/%s\n- Production: %s/26\n- CSV matches the reported cost.\n\nThe leaderboard workflow runs next; Sam Carter will mail your inbox once the row lands.\n' "$V_PASS" "$V_TOTAL" "$PROD_SCORE" > /tmp/accept_body.txt
+            printf 'Auto-accepted by the workshop bot.\n\n- Visible suite: %s/%s\n- Production: %s/26 (need %s)\n- CSV matches the reported cost.\n\nThe leaderboard workflow runs next; Sam Carter will mail your inbox once the row lands.\n' \
+              "$V_PASS" "$V_TOTAL" "$PROD_SCORE" "$REQUIRED_PROD" > /tmp/accept_body.txt
             gh pr comment "$PR_NUMBER" --repo "${{ github.repository }}" --body-file /tmp/accept_body.txt
           else
-            printf 'Auto-review blocked. Fix and push again.\n\n**Blocking:**\n' > /tmp/block_body.txt
+            WHATS_LEFT="**Fix ${REMAINING} more production checks to clear the 15/26 gate.**"
+            {
+              printf 'Auto-review blocked. Fix and push again.\n\n'
+              printf '%s\n\n' "$WHATS_LEFT"
+              printf '**Blocking:**\n'
+            } > /tmp/block_body.txt
             echo "$FAILURES" | tr ';' '\n' | sed 's/^/- /' | grep -v '^- $' >> /tmp/block_body.txt
             gh pr comment "$PR_NUMBER" --repo "${{ github.repository }}" --body-file /tmp/block_body.txt
           fi
