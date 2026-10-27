@@ -807,9 +807,8 @@ async function loadStaticBriefings() {
   sortMail();
   renderList();
   if (localStorage.getItem(LS_SEEN_MODAL) && !selectedId && MAIL.length) {
-    // Briefings now sit at the BOTTOM; the reader's first pick is
-    // the incident brief via its index in the desired order, not MAIL[0]
-    const first = MAIL.find(x => x.id === "incident-brief") || MAIL[0];
+    // Open the curriculum entry point: the start-here briefing
+    const first = MAIL.find(x => x.id === "start-here") || MAIL[0];
     if (first) openMail(first.id);
   }
 }
@@ -844,9 +843,9 @@ async function maybeLoadPersonal(force) {
 }
 
 function sortMail() {
-  // Briefings keep their curated protocol order (read #1 first),
+  // Briefings keep their curated protocol order (start-here at the top),
   // everything else (personal mail from Alex, Sam, bots) sorts newest-first
-  const BRIEFING_ORDER = ["incident-brief", "spec-docstrings", "submission-lifecycle", "kimchi-cadence"];
+  const BRIEFING_ORDER = ["start-here", "submission-lifecycle", "docstrings-as-contract"];
   MAIL.sort((a, b) => {
     if (a.category === "briefing" && b.category === "briefing") {
       return BRIEFING_ORDER.indexOf(a.id) - BRIEFING_ORDER.indexOf(b.id);
@@ -1038,7 +1037,7 @@ function renderBody(body) {
 
 function actionButtons(m) {
   const btns = [];
-  if (m.id === "incident-brief") {
+  if (m.id === "start-here") {
     btns.push(`<a class="btn primary" href="${REPO_URL}" target="_blank" rel="noopener">Open the repo</a>`);
     btns.push(`<a class="btn" href="${REPO_URL}/blob/challenge/PRODUCTION-INCIDENT.md" target="_blank" rel="noopener">Full incident report</a>`);
   }
@@ -1063,11 +1062,11 @@ function actionButtons(m) {
   return out.join("");
 }
 
-const FLOW_ORDER = ["incident-brief", "spec-docstrings", "submission-lifecycle", "kimchi-cadence"];
+const FLOW_ORDER = ["start-here", "submission-lifecycle", "docstrings-as-contract"];
 function nextStepFor(m) {
   if (m.personal || m.category === "production" || m.category === "score") {
     if (m.category === "score") return null;
-    return "Fix what production flagged, push to your branch — CI re-runs automatically. Then set nothing; your next mail arrives here when the story updates.";
+    return "Fix what production flagged, push to your branch - CI re-runs automatically. Then set nothing; your next mail arrives here when the story updates.";
   }
   const i = FLOW_ORDER.indexOf(m.id);
   if (i === -1) return null;
@@ -1111,7 +1110,7 @@ document.getElementById("aboutGo").addEventListener("click", () => {
   localStorage.setItem(LS_SEEN_MODAL, "1");
   syncHandleChip();
   if (MAIL.length && !selectedId) {
-    const first = MAIL.find(x => x.id === "incident-brief") || MAIL[0];
+    const first = MAIL.find(x => x.id === "start-here") || MAIL[0];
     openMail(first.id);
   }
 });
