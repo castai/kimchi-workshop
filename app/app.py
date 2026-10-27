@@ -129,6 +129,7 @@ def create_app():
         return jsonify(task)
 
     @app.patch("/tasks/<int:task_id>")
+    @app.put("/tasks/<int:task_id>")
     def update_task(task_id):
         """Wire the store's update_task (it existed, unrouted).
 

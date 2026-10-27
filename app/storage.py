@@ -42,11 +42,7 @@ class TaskStore:
                 if t["status"] != "open":
                     kept.append(t)
                     continue
-                last_activity = (
-                    t.get("last_activity_at")
-                    or t.get("updated_at") or t.get("completed_at") or t.get("created_at")
-                )
-                if _parse(last_activity) >= cutoff:
+                if _parse(_last_activity_iso(t)) >= cutoff:
                     kept.append(t)
             data["tasks"] = kept
             self._write(data)
@@ -68,14 +64,10 @@ class TaskStore:
                     local = by_id[tid]
                     if _parse(inc.get("updated_at", "")) > _parse(local.get("updated_at", "")):
                         local.update(inc)
-                        local["last_activity_at"] = (
-                            local.get("updated_at") or local.get("completed_at") or local.get("created_at", "")
-                        )
+                        local["last_activity_at"] = _last_activity_iso(local)
                 else:
                     merged = dict(inc)
-                    merged.setdefault("last_activity_at", (
-                        merged.get("updated_at") or merged.get("completed_at") or merged.get("created_at", "")
-                    ))
+                    merged["last_activity_at"] = _last_activity_iso(merged)
                     by_id[tid] = merged
             data["tasks"] = list(by_id.values())
             self._write(data)
@@ -182,6 +174,23 @@ class TaskStore:
 
 def _iso(dt):
     return dt.isoformat()
+
+
+def _last_activity_iso(t):
+    """Most recent of the task's activity timestamps, as an ISO string.
+
+    'Age since last activity' means the MAX of the present stamps -
+    an or-chain picks updated_at even when completed_at is more
+    recent, wrongly reaping an active task (verified: an open task
+    updated 20 days ago but completed yesterday was reaped).
+    """
+    stamps = [s for s in (
+        t.get("last_activity_at"), t.get("updated_at"),
+        t.get("completed_at"), t.get("created_at"),
+    ) if s]
+    if not stamps:
+        return ""
+    return max(stamps, key=_parse)
 
 
 def _parse(s):
