@@ -946,14 +946,71 @@ function openMail(id) {
 }
 
 function renderBody(body) {
-  let t = esc(body || "");
+  let raw = String(body || "");
+
+  // Extract fenced code blocks FIRST, replace with placeholders so inline regexes don't collide.
+  const blocks = [];
+  raw = raw.replace(/```(\w*)\n([\s\S]*?)\n```/g, function (m, lang, code) {
+    const idx = blocks.length;
+    blocks.push({ lang: lang || "", code: code });
+    return "__CODE_BLOCK_" + idx + "__";
+  });
+
+  let t = esc(raw);
+
+  // images
   t = t.replace(/!\[([^\]]*)\]\((https?:\/\/[^)]+)\)/g,
     '<img alt="$1" src="$2" style="max-width:100%;border-radius:8px;margin:10px 0;display:block">');
-  t = t.replace(/^### (.+)$/gm, '<div style="font-size:15px;font-weight:600;margin:14px 0 6px;color:var(--text)">$1</div>');
-  t = t.replace(/^## (.+)$/gm, '<div style="font-size:17px;font-weight:600;margin:16px 0 8px;color:var(--text)">$1</div>');
+
+  // markdown tables — sequences of consecutive lines starting with |
+  t = t.replace(/((?:^\s*\|.*\|\s*$\n?)+)/gm, function (tbl) {
+    const rows = tbl.trim().split("\n").map(r => r.trim());
+    if (rows.length < 2) return tbl;
+    const headCells = rows[0].split("|").slice(1, -1).map(c => c.trim());
+    const dataRows = rows.slice(2);  // skip the |---|---| row
+    let html = '<table style="border-collapse:collapse;margin:14px 0;font-size:13px;width:100%">';
+    html += "<thead><tr>" + headCells.map(c =>
+      '<th style="text-align:left;padding:8px 10px;border-bottom:1px solid var(--border);color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-spacing:0.5px">' + esc(c) + "</th>"
+    ).join("") + "</tr></thead><tbody>";
+    for (const r of dataRows) {
+      const cells = r.split("|").slice(1, -1).map(c => c.trim());
+      html += "<tr>" + cells.map(c =>
+        '<td style="padding:8px 10px;border-bottom:1px solid var(--border)">' + esc(c) + "</td>"
+      ).join("") + "</tr>";
+    }
+    html += "</tbody></table>";
+    return html;
+  });
+
+  // H2 / H3 headers
+  t = t.replace(/^### (.+)$/gm, '<div style="font-size:15px;font-weight:700;margin:16px 0 8px;color:var(--text)">$1</div>');
+  t = t.replace(/^## (.+)$/gm, '<div style="font-size:18px;font-weight:800;margin:18px 0 10px;color:var(--text)">$1</div>');
+  // hr
+  t = t.replace(/^---+$/gm, '<hr style="border:none;border-top:1px solid var(--border);margin:18px 0">');
+  // bold
   t = t.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
-  t = t.replace(/`([^`]+)`/g, '<code>$1</code>');
-  t = t.replace(/^- (.+)$/gm, '<div style="padding-left:14px;margin:2px 0">• $1</div>');
+  // italic
+  t = t.replace(/\*([^*\n]+)\*/g, "<em>$1</em>");
+  // inline code
+  t = t.replace(/`([^`\n]+)`/g, '<code style="background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:1px 6px;font-size:12px;font-family:ui-monospace,SFMono-Regular,monospace">$1</code>');
+  // unordered-list bullets
+  t = t.replace(/^- (.+)$/gm, '<div style="padding-left:14px;margin:3px 0">&bull; $1</div>');
+  // ordered-list numbers
+  t = t.replace(/^(\d+)\. (.+)$/gm,
+    '<div style="padding-left:14px;margin:3px 0"><span style="color:var(--muted);font-size:12px;margin-right:6px">$1.</span>$2</div>');
+
+  // Replace fenced-block placeholders with styled <pre>.
+  blocks.forEach(function (blk, i) {
+    const langLabel = blk.lang
+      ? '<span style="position:absolute;top:6px;right:10px;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.6px">' + esc(blk.lang) + "</span>"
+      : "";
+    const pre =
+      '<pre style="position:relative;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:14px 16px;margin:12px 0;overflow-x:auto;font-family:ui-monospace,SFMono-Regular,monospace;font-size:12px;line-height:1.55;color:var(--text);white-space:pre">' +
+      langLabel +
+      "<code>" + esc(blk.code) + "</code></pre>";
+    t = t.split("__CODE_BLOCK_" + i + "__").join(pre);
+  });
+
   return t;
 }
 
