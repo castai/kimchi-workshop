@@ -13,9 +13,14 @@ def create_app():
     store = TaskStore(data_file())
     register_error_handlers(app)
 
+    # One limiter per app instance: instantiating it inside before_request
+    # gave every request a fresh _events list, so the limit was never
+    # enforced. The docstring on SlidingWindowLimiter says the events
+    # list is what makes it sliding.
+    limiter = SlidingWindowLimiter(RATE_LIMIT, RATE_WINDOW)
+
     @app.before_request
     def rate_limit():
-        limiter = SlidingWindowLimiter(RATE_LIMIT, RATE_WINDOW)
         limiter.acquire()
 
     @app.get("/health")
