@@ -51,11 +51,36 @@ jobs:
           if-no-files-found: ignore
 
       - name: Record the accepted submission
+        env:
+          HANDLE: ${{ github.event.pull_request.user.login }}
         run: |
           mkdir -p records
           python - <<'EOF'
           import json, re, os
           row = json.load(open("download/score.json"))
+
+          # Overlay participant-profile fields (name, org, designation) from the
+          # join-registration ledger. score.json only carries the GitHub handle
+          # and a best-effort "attendee" string, so the leaderboard ends up
+          # showing handles instead of real names. Look up by handle and graft
+          # the richer profile onto the row.
+          handle = os.environ.get("HANDLE", "")
+          pfile = os.path.join("participants", "%s.json" % handle)
+          if os.path.exists(pfile):
+              with open(pfile) as f:
+                  pdata = json.load(f)
+              # name takes priority over attendee for display
+              if pdata.get("name"):
+                  row["name"] = pdata["name"]
+              if pdata.get("org"):
+                  row["org"] = pdata["org"]
+              if pdata.get("designation"):
+                  row["designation"] = pdata["designation"]
+              # participant email ledger takes precedence over score.json's
+              # raw "github" guess
+              if pdata.get("email"):
+                  row["email"] = pdata["email"]
+
           prod_passed, prod_total = 0, 0
           prod_log = "download/prod_log.md"
           if os.path.exists(prod_log):

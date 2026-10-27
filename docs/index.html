@@ -769,8 +769,8 @@ function renderBoard() {
         <span class="medal">${medals[r.rank] || ""}</span>${r.rank}
       </td>
       <td>
-        <div class="handle">${esc(r.attendee || "?")}</div>
-        <div class="gh">${r.github ? "@" + esc(r.github) : ""}</div>
+        <div class="handle">${esc(r.name || r.attendee || "?")}</div>
+        <div class="gh">${r.github ? "@" + esc(r.github) : (r.name && r.attendee && r.attendee !== r.name ? esc(r.attendee) : "")}</div>
       </td>
       <td>${r.pr_url ? `<a href="${esc(r.pr_url)}" target="_blank" rel="noopener">#${r.pr}</a>` : (r.pr || "")}</td>
       <td>
