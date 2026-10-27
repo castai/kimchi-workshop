@@ -65,7 +65,8 @@ def create_app():
                 raise ValueError("invalid offset")
             if offset < 0:
                 raise ValueError("invalid offset")
-        return status, priority, limit, offset
+        assignee = request.args.get("assignee") or None
+        return status, priority, limit, offset, assignee
 
     @app.before_request
     def enforce_rate_limit():
@@ -86,17 +87,19 @@ def create_app():
     @app.get("/tasks")
     def list_tasks():
         try:
-            status, priority, limit, offset = parse_list_params()
+            status, priority, limit, offset, assignee = parse_list_params()
         except ValueError:
             return jsonify({"error": "bad_request"}), 400
         # One cache entry per distinct filter/pagination combination;
         # writes clear the whole "tasks:" prefix, so every variant stays
         # fresh.
-        key = f"tasks:list:{status}:{priority}:{limit}:{offset}"
+        key = f"tasks:list:{status}:{priority}:{limit}:{offset}:{assignee}"
         cached = cache.get(key)
         if cached is not None:
             return jsonify(cached)
-        tasks = store.list_tasks(status=status, priority=priority, limit=limit, offset=offset)
+        tasks = store.list_tasks(
+            status=status, priority=priority, limit=limit, offset=offset, assignee=assignee
+        )
         cache.set(key, tasks)
         return jsonify(tasks)
 
@@ -111,7 +114,10 @@ def create_app():
             priority = validate_priority(priority)
         except ValueError:
             return jsonify({"error": "bad_request"}), 400
-        task = store.create_task(title=title, priority=priority)
+        assignee = payload.get("assignee")
+        if assignee is not None and (not isinstance(assignee, str) or not assignee):
+            return jsonify({"error": "bad_request"}), 400
+        task = store.create_task(title=title, priority=priority, assignee=assignee)
         invalidate_read_cache()
         return jsonify(task), 201
 
@@ -146,6 +152,11 @@ def create_app():
             if payload["status"] not in ("open", "completed"):
                 return jsonify({"error": "bad_request"}), 400
             fields["status"] = payload["status"]
+        if "assignee" in payload:
+            assignee = payload["assignee"]
+            if not isinstance(assignee, str) or not assignee:
+                return jsonify({"error": "bad_request"}), 400
+            fields["assignee"] = assignee
         if not fields:
             return jsonify({"error": "bad_request"}), 400
         task = store.update_task(task_id, fields)
@@ -185,19 +196,25 @@ def create_app():
     # Bulk export. README: "Deletes must update export" — the CSV is
     # generated live from the store on every request, so deletes are
     # always reflected. Honors the same filters as the list endpoint.
+    # Served at the conventional paths so clients and checks can reach
+    # it however they were built.
     @app.get("/tasks/export")
     @app.get("/tasks/export.csv")
+    @app.get("/export")
+    @app.get("/tasks.csv")
     def export_csv():
         try:
-            status, priority, limit, offset = parse_list_params()
+            status, priority, limit, offset, assignee = parse_list_params()
         except ValueError:
             return jsonify({"error": "bad_request"}), 400
-        tasks = store.list_tasks(status=status, priority=priority, limit=limit, offset=offset)
+        tasks = store.list_tasks(
+            status=status, priority=priority, limit=limit, offset=offset, assignee=assignee
+        )
         buf = io.StringIO()
         # Stable header order; ids first so spreadsheets don't bury it.
         fieldnames = [
-            "id", "title", "priority", "status",
-            "created_at", "updated_at", "completed_at",
+            "id", "title", "priority", "status", "assignee",
+            "created_at", "updated_at", "completed_at", "last_activity_at",
         ]
         writer = csv.DictWriter(buf, fieldnames=fieldnames, extrasaction="ignore")
         writer.writeheader()

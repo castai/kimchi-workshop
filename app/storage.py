@@ -30,12 +30,9 @@ class TaskStore:
     def gc_stale_tasks(self):
         """Remove tasks that have been open too long (over STALE_DAYS days).
 
-        BUG: recency is computed against (created_at, updated_at) - a task
-        created 10 days ago that the user keeps updating stays forever;
-        a task created yesterday that was updated once stays too. The
-        intended policy: age since LAST ACTIVITY (updated_at or
-        completed_at, whichever exists). Fix so an actively-updated task
-        survives and a never-touched old task is reaped.
+        Intended policy: age since LAST ACTIVITY. The materialized
+        last_activity_at field is authoritative when present; otherwise
+        fall back through updated_at / completed_at / created_at.
         """
         with self._lock:
             data = self._read()
@@ -46,7 +43,8 @@ class TaskStore:
                     kept.append(t)
                     continue
                 last_activity = (
-                    t.get("updated_at") or t.get("completed_at") or t.get("created_at")
+                    t.get("last_activity_at")
+                    or t.get("updated_at") or t.get("completed_at") or t.get("created_at")
                 )
                 if _parse(last_activity) >= cutoff:
                     kept.append(t)
@@ -70,13 +68,20 @@ class TaskStore:
                     local = by_id[tid]
                     if _parse(inc.get("updated_at", "")) > _parse(local.get("updated_at", "")):
                         local.update(inc)
+                        local["last_activity_at"] = (
+                            local.get("updated_at") or local.get("completed_at") or local.get("created_at", "")
+                        )
                 else:
-                    by_id[tid] = dict(inc)
+                    merged = dict(inc)
+                    merged.setdefault("last_activity_at", (
+                        merged.get("updated_at") or merged.get("completed_at") or merged.get("created_at", "")
+                    ))
+                    by_id[tid] = merged
             data["tasks"] = list(by_id.values())
             self._write(data)
             return data["tasks"]
 
-    def list_tasks(self, status=None, priority=None, limit=None, offset=None):
+    def list_tasks(self, status=None, priority=None, limit=None, offset=None, assignee=None):
         """List tasks with optional server-side filtering and pagination.
 
         The route layer forwards every supported query param here -
@@ -90,13 +95,15 @@ class TaskStore:
             tasks = [t for t in tasks if t.get("status") == status]
         if priority is not None:
             tasks = [t for t in tasks if t.get("priority") == priority]
+        if assignee is not None:
+            tasks = [t for t in tasks if t.get("assignee") == assignee]
         if offset is not None:
             tasks = tasks[offset:]
         if limit is not None:
             tasks = tasks[:limit]
         return tasks
 
-    def create_task(self, title, priority=1, now=None):
+    def create_task(self, title, priority=1, assignee=None, now=None):
         now = now or self._now()
         with self._lock:
             data = self._read()
@@ -107,7 +114,10 @@ class TaskStore:
                 "status": "open",
                 "created_at": _iso(now),
                 "updated_at": _iso(now),
+                "last_activity_at": _iso(now),
             }
+            if assignee:
+                task["assignee"] = assignee
             data["next_id"] += 1
             data["tasks"].append(task)
             self._write(data)
@@ -139,6 +149,7 @@ class TaskStore:
                     elif fields.get("status") == "open":
                         t.pop("completed_at", None)
                     t["updated_at"] = _iso(now)
+                    t["last_activity_at"] = _iso(now)
                     self._write(data)
                     return t
         return None
@@ -152,6 +163,7 @@ class TaskStore:
                     t["status"] = "completed"
                     t["completed_at"] = _iso(now)
                     t["updated_at"] = _iso(now)
+                    t["last_activity_at"] = _iso(now)
                     self._write(data)
                     return t
         return None
