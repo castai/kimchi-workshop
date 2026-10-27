@@ -10,9 +10,12 @@ import os
 
 # Module-level snapshots (read once at import). Prefer the accessor
 # functions below anywhere env changes between import and use.
-SECRET_KEY = os.environ.get("SECRET_KEY") or "dev-fallback-not-a-credential"
+# SECRET_KEY comes exclusively from the environment: unset means
+# empty (explicitly unconfigured), never a hardcoded fallback -
+# a literal secret in source is exactly what the incident flagged.
+SECRET_KEY = os.environ.get("SECRET_KEY") or ""
 DEBUG = os.environ.get("DEBUG", "0") == "1"
-STALE_DAYS = int(os.environ.get("STALE_DAYS", "7"))
+STALE_DAYS = float(os.environ.get("STALE_DAYS", "7"))
 RATE_LIMIT = int(os.environ.get("RATE_LIMIT", "30"))
 RATE_WINDOW = float(os.environ.get("RATE_WINDOW", "60"))
 CACHE_TTL = float(os.environ.get("CACHE_TTL", "30"))
@@ -20,12 +23,17 @@ CACHE_TTL = float(os.environ.get("CACHE_TTL", "30"))
 
 def secret_key():
     """SECRET_KEY from the environment, read at call time."""
-    return os.environ.get("SECRET_KEY") or "dev-fallback-not-a-credential"
+    return os.environ.get("SECRET_KEY") or SECRET_KEY
 
 
 def stale_days():
-    """GC threshold in days, read at call time."""
-    return int(os.environ.get("STALE_DAYS", "7"))
+    """GC threshold in days, read at call time.
+
+    Fractional values are honored (float) so sub-day thresholds -
+    e.g. tests reaping just-created tasks with STALE_DAYS=0.001 -
+    don't crash the int() parse.
+    """
+    return float(os.environ.get("STALE_DAYS", "7"))
 
 
 def rate_limit():
