@@ -89,6 +89,19 @@
       "category": "production",
       "body": "Saw prod: Deployment, Bulk export, and Cache invalidation are the worst, with Rate limiting close behind. Fix the docstrings first, the spec is the honest word, then make the limiter shared and invalidate that cache. Push again and CI reruns, we need this green before the CTO drafts anything else. Alex.\n\nPush it when it is green, CI reruns.",
       "pr_url": "https://github.com/castai/kimchi-workshop/pull/43"
+    },
+    {
+      "id": "prod-log-pr-43-8dc64f9",
+      "from": {
+        "name": "Alex Rivera",
+        "role": "Senior SRE",
+        "bg": "#0b5394"
+      },
+      "subject": "Re: deployment - production is unhappy again",
+      "timestamp": "2026-10-27 12:57 UTC",
+      "category": "production",
+      "body": "Saw the prod report: Deployment, Bulk export, and Rate limiting are the worst blockers, and the CTO is watching. Fix the docstrings first, the spec is the honest word for what should happen. Push again and CI reruns, I'll keep an eye on the thread.\n\nAlex\n\nPush it when it is green, CI reruns.",
+      "pr_url": "https://github.com/castai/kimchi-workshop/pull/43"
     }
   ]
 }
