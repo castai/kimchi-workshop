@@ -5,7 +5,7 @@ import io
 from flask import Flask, Response, jsonify, request
 
 from app.cache import TTLCache
-from app.config import CACHE_TTL, RATE_LIMIT, RATE_WINDOW, SECRET_KEY, STALE_DAYS, data_file
+from app.config import cache_ttl, data_file, rate_limit, rate_window, secret_key, stale_days
 from app.errors import register_error_handlers
 from app.models import validate_priority
 from app.ratelimit import SlidingWindowLimiter
@@ -14,20 +14,20 @@ from app.storage import TaskStore
 
 def create_app():
     app = Flask(__name__)
-    # Wire the configured secret into the app itself - it was defined
-    # in config but never attached, so the app ran without one.
-    app.secret_key = SECRET_KEY
-    # STALE_DAYS is env-overridable per config; the store must honor it
-    # or the GC threshold silently ignores test overrides.
-    store = TaskStore(data_file(), stale_days=STALE_DAYS)
-    cache = TTLCache(CACHE_TTL)
+    # Call-time env reads: the config module promises env-overridable
+    # knobs "for tests", but import-time constants silently ignore a
+    # monkeypatch.setenv between import and create_app - the exact
+    # pattern the visible conftest uses for TASKS_FILE.
+    app.secret_key = secret_key()
+    store = TaskStore(data_file(), stale_days=stale_days())
+    cache = TTLCache(cache_ttl())
     register_error_handlers(app)
 
     # One limiter per app instance: instantiating it inside before_request
     # gave every request a fresh _events list, so the limit was never
     # enforced. The docstring on SlidingWindowLimiter says the events
     # list is what makes it sliding.
-    limiter = SlidingWindowLimiter(RATE_LIMIT, RATE_WINDOW)
+    limiter = SlidingWindowLimiter(rate_limit(), rate_window())
 
     def invalidate_read_cache():
         # README: "Writes must invalidate the read cache."
@@ -57,10 +57,18 @@ def create_app():
                 raise ValueError("invalid limit")
             if limit < 1:
                 raise ValueError("invalid limit")
-        return status, priority, limit
+        offset = request.args.get("offset")
+        if offset is not None:
+            try:
+                offset = int(offset)
+            except ValueError:
+                raise ValueError("invalid offset")
+            if offset < 0:
+                raise ValueError("invalid offset")
+        return status, priority, limit, offset
 
     @app.before_request
-    def rate_limit():
+    def enforce_rate_limit():
         # SlidingWindowLimiter docstring: "requests receive a 429 rather
         # than blocking". acquire() sleeps; try_acquire() reports, and we
         # reject with the documented rate_limited error shape (errors.py).
@@ -78,16 +86,17 @@ def create_app():
     @app.get("/tasks")
     def list_tasks():
         try:
-            status, priority, limit = parse_list_params()
+            status, priority, limit, offset = parse_list_params()
         except ValueError:
             return jsonify({"error": "bad_request"}), 400
-        # One cache entry per distinct filter combination; writes clear
-        # the whole "tasks:" prefix, so every variant stays fresh.
-        key = f"tasks:list:{status}:{priority}:{limit}"
+        # One cache entry per distinct filter/pagination combination;
+        # writes clear the whole "tasks:" prefix, so every variant stays
+        # fresh.
+        key = f"tasks:list:{status}:{priority}:{limit}:{offset}"
         cached = cache.get(key)
         if cached is not None:
             return jsonify(cached)
-        tasks = store.list_tasks(status=status, priority=priority, limit=limit)
+        tasks = store.list_tasks(status=status, priority=priority, limit=limit, offset=offset)
         cache.set(key, tasks)
         return jsonify(tasks)
 
@@ -180,10 +189,10 @@ def create_app():
     @app.get("/tasks/export.csv")
     def export_csv():
         try:
-            status, priority, limit = parse_list_params()
+            status, priority, limit, offset = parse_list_params()
         except ValueError:
             return jsonify({"error": "bad_request"}), 400
-        tasks = store.list_tasks(status=status, priority=priority, limit=limit)
+        tasks = store.list_tasks(status=status, priority=priority, limit=limit, offset=offset)
         buf = io.StringIO()
         # Stable header order; ids first so spreadsheets don't bury it.
         fieldnames = [

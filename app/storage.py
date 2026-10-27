@@ -76,12 +76,13 @@ class TaskStore:
             self._write(data)
             return data["tasks"]
 
-    def list_tasks(self, status=None, priority=None, limit=None):
-        """List tasks with optional server-side filtering and bounding.
+    def list_tasks(self, status=None, priority=None, limit=None, offset=None):
+        """List tasks with optional server-side filtering and pagination.
 
         The route layer forwards every supported query param here -
         dropping them at the route is what made /tasks serve the full
-        table on every request (incident anomaly 3).
+        table on every request (incident anomaly 3). Pagination is
+        limit + offset, offset applied first.
         """
         data = self._read()
         tasks = data["tasks"]
@@ -89,6 +90,8 @@ class TaskStore:
             tasks = [t for t in tasks if t.get("status") == status]
         if priority is not None:
             tasks = [t for t in tasks if t.get("priority") == priority]
+        if offset is not None:
+            tasks = tasks[offset:]
         if limit is not None:
             tasks = tasks[:limit]
         return tasks
