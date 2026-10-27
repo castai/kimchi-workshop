@@ -1,8 +1,9 @@
 """Ferment Board API. Small Flask app used for the workshop challenges."""
 from flask import Flask, jsonify, request
 
-from app.cache import TTLCache
-from app.config import CACHE_TTL, RATE_LIMIT, RATE_WINDOW, data_file
+from app.config import RATE_LIMIT, RATE_WINDOW, data_file
+from app.errors import register_error_handlers
+from app.models import validate_priority
 from app.ratelimit import SlidingWindowLimiter
 from app.storage import TaskStore
 
@@ -10,7 +11,7 @@ from app.storage import TaskStore
 def create_app():
     app = Flask(__name__)
     store = TaskStore(data_file())
-    cache = TTLCache(CACHE_TTL)
+    register_error_handlers(app)
 
     @app.before_request
     def rate_limit():
@@ -23,20 +24,23 @@ def create_app():
 
     @app.get("/tasks")
     def list_tasks():
-        cached = cache.get("tasks:list")
-        if cached is not None:
-            return jsonify(cached)
-        tasks = store.list_tasks()
-        cache.set("tasks:list", tasks)
-        return jsonify(tasks)
+        status = request.args.get("status")
+        if status is not None and status not in ("open", "completed"):
+            return jsonify({"error": "bad_request"}), 400
+        return jsonify(store.list_tasks(status=status))
 
     @app.post("/tasks")
     def create_task():
-        payload = request.get_json() or {}
-        task = store.create_task(
-            title=payload["title"],
-            priority=payload.get("priority", 1),
-        )
+        payload = request.get_json(silent=True) or {}
+        title = payload.get("title")
+        if not isinstance(title, str) or not title:
+            return jsonify({"error": "bad_request"}), 400
+        priority = payload.get("priority", 1)
+        try:
+            priority = validate_priority(priority)
+        except ValueError:
+            return jsonify({"error": "bad_request"}), 400
+        task = store.create_task(title=title, priority=priority)
         return jsonify(task), 201
 
     @app.get("/tasks/<int:task_id>")

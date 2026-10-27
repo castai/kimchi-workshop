@@ -45,11 +45,10 @@ class TaskStore:
                 if t["status"] != "open":
                     kept.append(t)
                     continue
-                if t.get("updated_at"):
-                    if _parse(t["updated_at"]) >= cutoff:
-                        kept.append(t)
-                    continue
-                if _parse(t["created_at"]) > cutoff:
+                last_activity = (
+                    t.get("updated_at") or t.get("completed_at") or t.get("created_at")
+                )
+                if _parse(last_activity) >= cutoff:
                     kept.append(t)
             data["tasks"] = kept
             self._write(data)
@@ -69,7 +68,7 @@ class TaskStore:
                 tid = inc["id"]
                 if tid in by_id:
                     local = by_id[tid]
-                    if _parse(inc.get("updated_at", "")) >= _parse(local.get("updated_at", "")):
+                    if _parse(inc.get("updated_at", "")) > _parse(local.get("updated_at", "")):
                         local.update(inc)
                 else:
                     by_id[tid] = dict(inc)
