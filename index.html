@@ -778,9 +778,13 @@ async function loadStaticBriefings() {
       MAIL.push({ ...e, category: e.category || "briefing", snippet: snippet(e.body) });
     }
   } catch (e) { /* retry next tick */ }
+  sortMail();
   renderList();
   if (localStorage.getItem(LS_SEEN_MODAL) && !selectedId && MAIL.length) {
-    openMail(MAIL[0].id);
+    // Briefings now sit at the BOTTOM; the reader's first pick is
+    // the incident brief via its index in the desired order, not MAIL[0]
+    const first = MAIL.find(x => x.id === "incident-brief") || MAIL[0];
+    if (first) openMail(first.id);
   }
 }
 
@@ -814,7 +818,17 @@ async function maybeLoadPersonal(force) {
 }
 
 function sortMail() {
-  MAIL.sort((a, b) => String(a.timestamp).localeCompare(String(b.timestamp)));
+  // Briefings keep their curated protocol order (read #1 first),
+  // everything else (personal mail from Alex, Sam, bots) sorts newest-first
+  const BRIEFING_ORDER = ["incident-brief", "spec-docstrings", "submission-lifecycle", "kimchi-cadence"];
+  MAIL.sort((a, b) => {
+    if (a.category === "briefing" && b.category === "briefing") {
+      return BRIEFING_ORDER.indexOf(a.id) - BRIEFING_ORDER.indexOf(b.id);
+    }
+    if (a.category === "briefing") return 1;
+    if (b.category === "briefing") return -1;
+    return String(b.timestamp).localeCompare(String(a.timestamp));
+  });
 }
 
 function renderList() {
@@ -991,7 +1005,10 @@ document.getElementById("aboutGo").addEventListener("click", () => {
   closeModal("aboutModal");
   localStorage.setItem(LS_SEEN_MODAL, "1");
   syncHandleChip();
-  if (MAIL.length && !selectedId) openMail(MAIL[0].id);
+  if (MAIL.length && !selectedId) {
+    const first = MAIL.find(x => x.id === "incident-brief") || MAIL[0];
+    openMail(first.id);
+  }
 });
 
 document.getElementById("composeJoinBtn").addEventListener("click", () => {
