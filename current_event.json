@@ -1,0 +1,8 @@
+{
+  "event_code": "TEST-001",
+  "started_by": "kunalcast",
+  "started_at": "2026-10-26T16:25:00+00:00",
+  "event_label": "Test workshop",
+  "max_participants": 50,
+  "credits_amount_usd": 5.0
+}
