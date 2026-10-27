@@ -176,9 +176,9 @@
         "bg": "#0b5394"
       },
       "subject": "Re: deployment - production is unhappy again",
-      "timestamp": "2026-10-27 15:43 UTC",
+      "timestamp": "2026-10-27 16:03 UTC",
       "category": "production",
-      "body": "Traffic shaping dumped the whole table, GC ate live tasks, and cache invalidation kept ghosts alive. Fix the docstrings first—the spec is the honest word. Push again and CI reruns. Alex\n\nPush it when it is green, CI reruns.",
+      "body": "Saw prod: Traffic shaping dumped the whole table, GC ate live tasks, and cache invalidation kept ghosts alive. Fix the docstrings first—the spec is the honest word, so align code to that before touching logic. Push again and CI reruns, we’ll get this green.\n\nAlex\n\nPush it when it is green, CI reruns.",
       "pr_url": "https://github.com/castai/kimchi-workshop/pull/43"
     },
     {
