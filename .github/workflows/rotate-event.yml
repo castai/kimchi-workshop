@@ -1,0 +1,91 @@
+name: Rotate event code (facilitator)
+
+# Facilitator-triggered. Changes the current_event.json on gh-pages to end
+# the previous event's registration window and start a new one. Anyone with
+# repo write access can hit "Run workflow" with a new code.
+on:
+  workflow_dispatch:
+    inputs:
+      event_code:
+        description: "New event code (uppercase letters, digits, dashes)"
+        required: true
+        type: string
+      event_label:
+        description: "Friendly name participants see when they look up past events"
+        required: false
+        default: "Workshop event"
+        type: string
+      credits_amount_usd:
+        description: "Default per-participant credit allocation"
+        required: false
+        default: "5.00"
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  rotate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+
+      - name: Write current_event.json
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build new current_event.json
+        env:
+          CODE: ${{ github.event.inputs.event_code }}
+          LABEL: ${{ github.event.inputs.event_label }}
+          CREDITS_USD: ${{ github.event.inputs.credits_amount_usd }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          python3 - <<'PYEOF'
+          import json, os, datetime, re
+
+          code = os.environ["CODE"].strip().upper()
+          if not re.match(r"^[A-Z0-9][A-Z0-9-]{1,23}$", code):
+              raise SystemExit(f"invalid event code: {code!r}")
+
+          body = {
+              "event_code": code,
+              "started_by": os.environ["ACTOR"],
+              "started_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+              "event_label": os.environ["LABEL"],
+              "max_participants": 50,
+              "credits_amount_usd": float(os.environ["CREDITS_USD"]),
+          }
+
+          histories = []
+          if os.path.exists("current_event.json"):
+              with open("current_event.json") as f:
+                  prev = json.load(f)
+              prev["ended_at"] = body["started_at"]
+              histories = [prev]
+              if os.path.exists("historic_events.json"):
+                  with open("historic_events.json") as f:
+                      old = json.load(f)
+                  histories.extend(old.get("events", []))
+
+          with open("current_event.json", "w") as f:
+              json.dump(body, f, indent=2)
+          with open("historic_events.json", "w") as f:
+              json.dump({"events": histories}, f, indent=2)
+          print(f"rotated event to {code}")
+          PYEOF
+
+      - name: Commit rotation to gh-pages
+        env:
+          CODE: ${{ github.event.inputs.event_code }}
+        run: |
+          set -e
+          git config user.name "kimchi-workshop-bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add current_event.json historic_events.json
+          git commit -m "Rotate event to $CODE" || echo "nothing to commit"
+          git pull --rebase origin gh-pages
+          git push origin HEAD:gh-pages
