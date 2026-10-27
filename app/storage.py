@@ -146,6 +146,13 @@ def _iso(dt):
 
 
 def _parse(s):
-    # datetime.min is naive; pair with timezone.utc so it compares
-    # cleanly against tz-aware stored timestamps (utcnow -> now(utc)).
-    return datetime.fromisoformat(s) if s else datetime.min.replace(tzinfo=timezone.utc)
+    # Every timestamp that enters a comparison must be tz-aware: _now()
+    # returns aware (now(timezone.utc)), so a naive string - externally
+    # seeded data, sync payloads, or pre-tz files - would raise
+    # TypeError on comparison. Normalize naive input to UTC.
+    if not s:
+        return datetime.min.replace(tzinfo=timezone.utc)
+    dt = datetime.fromisoformat(s)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt
