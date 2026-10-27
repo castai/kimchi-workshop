@@ -1,0 +1,64 @@
+name: Join a workshop event
+description: Register here to get an event code and onboarding email for the current workshop
+title: "[join] <your-name>"
+labels: ["join"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Join a workshop event
+
+        Submit this form to register for the currently-running workshop event.
+        The event code comes from the facilitator. We use your details to:
+          - mint your Kimchi credits for the event
+          - send the onboarding email with your first briefing
+          - log when your workshop start time begins
+
+        Your GitHub handle here is the one that will also submit PRs, so the
+        facilitator can map your credits correctly.
+
+  - type: input
+    id: name
+    attributes:
+      label: Full name
+      description: First name + last name. Used on the contract for credits.
+      placeholder: Janet Kestrel
+    validations:
+      required: true
+
+  - type: input
+    id: designation
+    attributes:
+      label: Designation
+      description: Title - role. Example - Senior SRE, Software Engineer II
+      placeholder: Senior SRE
+    validations:
+      required: true
+
+  - type: input
+    id: org
+    attributes:
+      label: Organization
+      description: Employer or school name. This is who the credits invoice bills against.
+      placeholder: Acme Corp
+    validations:
+      required: true
+
+  - type: input
+    id: email
+    attributes:
+      label: Work email
+      description: Where the welcome + credit-issuance email comes to. Use the same email your GitHub account uses if possible.
+      placeholder: janet@example.com
+    validations:
+      required: true
+
+  - type: input
+    id: event_code
+    attributes:
+      label: Event code
+      description: Get this from the facilitator. One code per running event - reuse attempts across duplicate handles are logged but rejected.
+      placeholder: TEST-001
+    validations:
+      required: true

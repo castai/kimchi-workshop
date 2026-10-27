@@ -1,0 +1,96 @@
+name: Process workshop join issue
+
+# Triggered when a participant submits the "Join a workshop event"
+# issue form. Validates the event code against gh-pages/current_event.json,
+# logs the registration to gh-pages (events/<code>/registrations.json and
+# participants/<handle>.json), marks their start_time, and triggers the
+# onboarding email flow.
+on:
+  issues:
+    types: [opened, edited]
+
+permissions:
+  issues: write
+  contents: write
+
+jobs:
+  register:
+    if: contains(github.event.issue.labels.*.name, 'join')
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      ISSUE_BODY: ${{ github.event.issue.body }}
+      ISSUE_NUMBER: ${{ github.event.issue.number }}
+      ISSUE_AUTHOR: ${{ github.event.issue.user.login }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Fetch join-register script from the private answers repo
+        uses: actions/checkout@v4
+        with:
+          repository: castai/kimchi-workshop-answers
+          ref: verification
+          path: answers/
+          token: ${{ secrets.ANSWERS_REPO_PAT }}
+          persist-credentials: false
+          sparse-checkout: .verification
+
+      - name: Run join registration
+        id: reg
+        env:
+          ANSWERS_REPO_PAT: ${{ secrets.ANSWERS_REPO_PAT }}
+        run: |
+          set -e
+          cp answers/.verification/register_join.py .verification/register_join.py
+          OUT=$(python3 .verification/register_join.py 2>&1)
+          echo "$OUT"
+          echo "$OUT" | grep -E '^(valid|handle|event_code|email|missing)=' | \
+            while IFS='=' read -r k v; do
+              echo "$k=$v" >> "$GITHUB_OUTPUT"
+            done
+
+      - name: Commit the registration to gh-pages
+        if: steps.reg.outputs.valid == 'yes'
+        env:
+          HANDLE: ${{ steps.reg.outputs.handle }}
+          EVENT_CODE: ${{ steps.reg.outputs.event_code }}
+        run: |
+          set -e
+          git config user.name "kimchi-workshop-bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add events/ participants/
+          git commit -m "Join: @$HANDLE on event $EVENT_CODE" || echo "nothing to commit"
+          git pull --rebase origin gh-pages
+          git push origin HEAD:gh-pages
+
+      - name: Reply on the issue
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          VALID: ${{ steps.reg.outputs.valid }}
+          MISSING: ${{ steps.reg.outputs.missing }}
+          HANDLE: ${{ steps.reg.outputs.handle }}
+          EVENT_CODE: ${{ steps.reg.outputs.event_code }}
+        run: |
+          set -e
+          if [ "$VALID" = "yes" ]; then
+            gh issue comment "$ISSUE_NUMBER" \
+              --repo "${{ github.repository }}" \
+              --body "Welcome aboard, @$HANDLE. Registration recorded for event $EVENT_CODE. Your start time is now $(date -u +%FT%TZ). Open the workshop UI at https://castai.github.io/kimchi-workshop/ and put your GitHub handle (**$HANDLE**) in the top-right corner to read your first briefing."
+          else
+            gh issue comment "$ISSUE_NUMBER" \
+              --repo "${{ github.repository }}" \
+              --body "Registration did not complete. Missing fields: $MISSING. Edit the issue body and re-save. The join workflow re-runs automatically on edit."
+          fi
+
+      - name: Facilitator dispatch (optional) - queue credit issuance notification
+        if: steps.reg.outputs.valid == 'yes'
+        run: |
+          echo "registration complete; facilitator-side credit issuance queue can read events/${{ steps.reg.outputs.event_code }}/registrations.json"
