@@ -30,37 +30,6 @@
         }
       ],
       "count": 1
-    },
-    "Test-001": {
-      "rows": [
-        {
-          "attendee": "kunalworldwide",
-          "email": "kunaldasgm+test@gmail.com",
-          "github": "kunalworldwide",
-          "event": "Test-001",
-          "pr": 17,
-          "pr_url": "https://github.com/castai/kimchi-workshop/pull/17",
-          "pr_title": "[submission] kunalworldwide - restore docstring contracts: secrets, validation, cache, GC, sync, rate limit",
-          "status": "accepted",
-          "tests_passed": 9,
-          "tests_failed": 0,
-          "review_score": 0.0,
-          "cost_usd": 518.0,
-          "cost_self_reported": true,
-          "requests": 0,
-          "models_used": [],
-          "points": 88.0,
-          "submitted_at": "2026-10-26T15:46:45.406458+00:00",
-          "scoring_config": {
-            "budget_usd": 2.0
-          },
-          "production_passed": 0,
-          "production_total": 0,
-          "accepted_at": "2026-10-26T16:22:11.506597+00:00",
-          "rank": 1
-        }
-      ],
-      "count": 1
     }
   }
 }
