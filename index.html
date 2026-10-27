@@ -948,14 +948,27 @@ function openMail(id) {
 function renderBody(body) {
   let raw = String(body || "");
 
-  // Extract fenced code blocks FIRST, replace with placeholders so inline regexes don't collide.
+  // Pass 1: extract fenced code blocks AND inline code spans into a
+  // placeholder pool BEFORE we HTML-escape the body. This protects special
+  // characters inside code (like `<`/ `>`) from getting double-escaped by
+  // the downstream esc().
   const blocks = [];
-  raw = raw.replace(/```(\w*)\n([\s\S]*?)\n```/g, function (m, lang, code) {
+  const FENCED = /```(\w*)\n([\s\S]*?)\n```/g;
+  const INLINE = /`([^`\n]+)`/g;
+  raw = raw.replace(FENCED, function (m, lang, code) {
     const idx = blocks.length;
-    blocks.push({ lang: lang || "", code: code });
-    return "__CODE_BLOCK_" + idx + "__";
+    blocks.push({ kind: "fenced", lang: lang || "", code: code });
+    return "\u0001BLOCK_" + idx + "\u0002";
+  });
+  raw = raw.replace(INLINE, function (m, code) {
+    const idx = blocks.length;
+    blocks.push({ kind: "inline", code: code });
+    return "\u0001BLOCK_" + idx + "\u0002";
   });
 
+  // Pass 2: escape the remaining text. Anything inside the placeholders is
+  // safe — esc() doesn't touch control characters, so placeholder tokens
+  // survive and we re-substitute the originals later with proper wrapping.
   let t = esc(raw);
 
   // images
@@ -970,19 +983,19 @@ function renderBody(body) {
     const dataRows = rows.slice(2);  // skip the |---|---| row
     let html = '<table style="border-collapse:collapse;margin:14px 0;font-size:13px;width:100%">';
     html += "<thead><tr>" + headCells.map(c =>
-      '<th style="text-align:left;padding:8px 10px;border-bottom:1px solid var(--border);color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-spacing:0.5px">' + esc(c) + "</th>"
+      '<th style="text-align:left;padding:8px 10px;border-bottom:1px solid var(--border);color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-spacing:0.5px">' + c + "</th>"
     ).join("") + "</tr></thead><tbody>";
     for (const r of dataRows) {
       const cells = r.split("|").slice(1, -1).map(c => c.trim());
       html += "<tr>" + cells.map(c =>
-        '<td style="padding:8px 10px;border-bottom:1px solid var(--border)">' + esc(c) + "</td>"
+        '<td style="padding:8px 10px;border-bottom:1px solid var(--border)">' + c + "</td>"
       ).join("") + "</tr>";
     }
     html += "</tbody></table>";
     return html;
   });
 
-  // H2 / H3 headers
+  // H2 / H3
   t = t.replace(/^### (.+)$/gm, '<div style="font-size:15px;font-weight:700;margin:16px 0 8px;color:var(--text)">$1</div>');
   t = t.replace(/^## (.+)$/gm, '<div style="font-size:18px;font-weight:800;margin:18px 0 10px;color:var(--text)">$1</div>');
   // hr
@@ -991,24 +1004,33 @@ function renderBody(body) {
   t = t.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
   // italic
   t = t.replace(/\*([^*\n]+)\*/g, "<em>$1</em>");
-  // inline code
-  t = t.replace(/`([^`\n]+)`/g, '<code style="background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:1px 6px;font-size:12px;font-family:ui-monospace,SFMono-Regular,monospace">$1</code>');
   // unordered-list bullets
   t = t.replace(/^- (.+)$/gm, '<div style="padding-left:14px;margin:3px 0">&bull; $1</div>');
   // ordered-list numbers
   t = t.replace(/^(\d+)\. (.+)$/gm,
     '<div style="padding-left:14px;margin:3px 0"><span style="color:var(--muted);font-size:12px;margin-right:6px">$1.</span>$2</div>');
 
-  // Replace fenced-block placeholders with styled <pre>.
+  // Pass 3: re-emit each placeholder as its proper HTML element.
   blocks.forEach(function (blk, i) {
-    const langLabel = blk.lang
-      ? '<span style="position:absolute;top:6px;right:10px;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.6px">' + esc(blk.lang) + "</span>"
-      : "";
-    const pre =
-      '<pre style="position:relative;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:14px 16px;margin:12px 0;overflow-x:auto;font-family:ui-monospace,SFMono-Regular,monospace;font-size:12px;line-height:1.55;color:var(--text);white-space:pre">' +
-      langLabel +
-      "<code>" + esc(blk.code) + "</code></pre>";
-    t = t.split("__CODE_BLOCK_" + i + "__").join(pre);
+    const placeholder = "\u0001BLOCK_" + i + "\u0002";
+    let html = "";
+    if (blk.kind === "fenced") {
+      const langLabel = blk.lang
+        ? '<span style="position:absolute;top:6px;right:10px;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.6px">' + esc(blk.lang) + "</span>"
+        : "";
+      html =
+        '<pre style="position:relative;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:14px 16px;margin:12px 0;overflow-x:auto;font-family:ui-monospace,SFMono-Regular,monospace;font-size:12px;line-height:1.55;color:var(--text);white-space:pre-wrap;word-break:break-word">' +
+        langLabel +
+        "<code>" + esc(blk.code) + "</code></pre>";
+    } else {
+      // inline code span — content already HTML-escapes anywhere it needs to
+      // (we pulled it from the raw text before esc() ran).
+      html =
+        '<code style="background:var(--surface-2);border:1px solid var(--border);border-radius:4px;padding:1px 6px;font-size:12.5px;font-family:ui-monospace,SFMono-Regular,monospace;white-space:nowrap">' +
+        esc(blk.code) +
+        "</code>";
+    }
+    t = t.split(placeholder).join(html);
   });
 
   return t;
