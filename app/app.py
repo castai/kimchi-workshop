@@ -5,7 +5,7 @@ import io
 from flask import Flask, Response, jsonify, request
 
 from app.cache import TTLCache
-from app.config import CACHE_TTL, RATE_LIMIT, RATE_WINDOW, STALE_DAYS, data_file
+from app.config import CACHE_TTL, RATE_LIMIT, RATE_WINDOW, SECRET_KEY, STALE_DAYS, data_file
 from app.errors import register_error_handlers
 from app.models import validate_priority
 from app.ratelimit import SlidingWindowLimiter
@@ -14,6 +14,9 @@ from app.storage import TaskStore
 
 def create_app():
     app = Flask(__name__)
+    # Wire the configured secret into the app itself - it was defined
+    # in config but never attached, so the app ran without one.
+    app.secret_key = SECRET_KEY
     # STALE_DAYS is env-overridable per config; the store must honor it
     # or the GC threshold silently ignores test overrides.
     store = TaskStore(data_file(), stale_days=STALE_DAYS)
@@ -108,6 +111,38 @@ def create_app():
         task = store.get_task(task_id)
         if task is None:
             return jsonify({"error": "not_found"}), 404
+        return jsonify(task)
+
+    @app.patch("/tasks/<int:task_id>")
+    def update_task(task_id):
+        """Wire the store's update_task (it existed, unrouted).
+
+        Accepts title / priority / status; unknown fields are
+        ignored. Bad values are 400 bad_request per the contract,
+        missing ids are 404. The write invalidates the read cache.
+        """
+        payload = request.get_json(silent=True) or {}
+        fields = {}
+        if "title" in payload:
+            title = payload["title"]
+            if not isinstance(title, str) or not title:
+                return jsonify({"error": "bad_request"}), 400
+            fields["title"] = title
+        if "priority" in payload:
+            try:
+                fields["priority"] = validate_priority(payload["priority"])
+            except ValueError:
+                return jsonify({"error": "bad_request"}), 400
+        if "status" in payload:
+            if payload["status"] not in ("open", "completed"):
+                return jsonify({"error": "bad_request"}), 400
+            fields["status"] = payload["status"]
+        if not fields:
+            return jsonify({"error": "bad_request"}), 400
+        task = store.update_task(task_id, fields)
+        if task is None:
+            return jsonify({"error": "not_found"}), 404
+        invalidate_read_cache()
         return jsonify(task)
 
     @app.patch("/tasks/<int:task_id>/complete")

@@ -117,11 +117,25 @@ class TaskStore:
         return None
 
     def update_task(self, task_id, fields, now=None):
+        """Update mutable fields and bump updated_at.
+
+        updated_at is the activity marker GC keys on - an edit that
+        doesn't refresh it leaves the task looking stale, so actively
+        edited tasks get reaped mid-edit. Status changes keep the
+        completed_at lifecycle consistent (set on complete, cleared on
+        reopen).
+        """
+        now = now or self._now()
         with self._lock:
             data = self._read()
             for t in data["tasks"]:
                 if t["id"] == task_id:
                     t.update(fields)
+                    if fields.get("status") == "completed" and not t.get("completed_at"):
+                        t["completed_at"] = _iso(now)
+                    elif fields.get("status") == "open":
+                        t.pop("completed_at", None)
+                    t["updated_at"] = _iso(now)
                     self._write(data)
                     return t
         return None
