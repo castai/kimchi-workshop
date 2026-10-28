@@ -382,6 +382,28 @@
       "subject": "here's where you stand em dash Add rotating SRE sender roster (Priya Nair, Marcus Webb",
       "body": "CI on feature/rotating-sre-senders: skipped. Run details are in the workflow log on GitHub. Ping when ready for the next round. em dash Alex.",
       "timestamp": "2026-10-27 18:26 UTC"
+    },
+    {
+      "id": "glance-50f94822",
+      "from": {
+        "name": "Alex Rivera",
+        "role": "Senior SRE"
+      },
+      "category": "commit-glance",
+      "subject": "glancing at this commit em dash Security: split test execution from secret-using reporting s",
+      "body": "Saw the commit land on *fix/pwn-request-security-split* \u2014 pulling it locally against the CI run. Check the suite status when it posts. em dash Alex.",
+      "timestamp": "2026-10-28 20:45 UTC"
+    },
+    {
+      "id": "status-Produc-50f94822",
+      "from": {
+        "name": "Alex Rivera",
+        "role": "Senior SRE"
+      },
+      "category": "commit-status",
+      "subject": "here's where you stand em dash Security: split test execution from secret-using report",
+      "body": "CI on fix/pwn-request-security-split: skipped. Run details are in the workflow log on GitHub. Ping when ready for the next round. em dash Alex.",
+      "timestamp": "2026-10-28 20:45 UTC"
     }
   ]
 }
