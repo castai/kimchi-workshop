@@ -137,30 +137,37 @@ def _is_user_owner(meta):
 
 
 def _owner_spend_from(data):
-    """Extract {owner_id: {cost_usd, requests}} from a report payload."""
+    """Extract {owner_id: {cost_usd, requests, models_used}} from a report
+    payload."""
     spend = {}
     for bucket in (data.get("cost") or {}).get("items", []):
         for m in bucket.get("models", []):
             meta = m.get("castaiApiKeyMetadata") or {}
             if not _is_user_owner(meta):
                 continue
-            acc = spend.setdefault(meta["ownerId"], {"cost_usd": 0.0,
-                                                     "requests": 0})
+            acc = spend.setdefault(meta["ownerId"], {
+                "cost_usd": 0.0, "requests": 0, "models_used": set()})
             try:
                 acc["cost_usd"] += float(m.get("totalCost") or 0)
             except (TypeError, ValueError):
                 pass
+            if m.get("model"):
+                acc["models_used"].add(m["model"])
     for bucket in (data.get("apiCalls") or {}).get("items", []):
         for m in bucket.get("models", []):
             meta = m.get("castaiApiKeyMetadata") or {}
             if not _is_user_owner(meta):
                 continue
-            acc = spend.setdefault(meta["ownerId"], {"cost_usd": 0.0,
-                                                     "requests": 0})
+            acc = spend.setdefault(meta["ownerId"], {
+                "cost_usd": 0.0, "requests": 0, "models_used": set()})
             try:
                 acc["requests"] += int(m.get("totalCount") or 0)
             except (TypeError, ValueError):
                 pass
+            if m.get("model"):
+                acc["models_used"].add(m["model"])
+    for acc in spend.values():
+        acc["models_used"] = sorted(acc["models_used"])
     return spend
 
 
@@ -205,9 +212,13 @@ def fetch_owner_costs(api_key, org_id, start, end, base_url=None, tags=None):
             left = _query(s1, e1, depth + 1)
             right = _query(s2, e2, depth + 1)
             for oid, acc in right.items():
-                cur = left.setdefault(oid, {"cost_usd": 0.0, "requests": 0})
+                cur = left.setdefault(oid, {"cost_usd": 0.0, "requests": 0,
+                                            "models_used": []})
                 cur["cost_usd"] += acc["cost_usd"]
                 cur["requests"] += acc["requests"]
+                merged = set(cur.get("models_used", []))
+                merged.update(acc.get("models_used", []))
+                cur["models_used"] = sorted(merged)
             return left
 
     return _query(_parse_iso(start), _parse_iso(end))

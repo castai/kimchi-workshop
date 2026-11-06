@@ -79,9 +79,8 @@ jobs:
         run: |
           mkdir -p records
           python - <<'EOF'
-          import csv, io, json, math, os, re, subprocess, sys
+          import json, math, os, re, subprocess, sys
           from datetime import datetime, timezone
-          from urllib.request import Request, urlopen
 
           row = json.load(open("download/score.json"))
           handle = os.environ["HANDLE"]
@@ -121,132 +120,17 @@ jobs:
           row["production_passed"] = prod_passed
           row["production_total"] = prod_total
 
-          # ---- Kimchi usage CSV (real models, requests, cost)
-          # Look at the branch top level first; fall back to comment attachments
-          # on the same PR (facilitator-or-participant pasted link).
-          def _fetch_and_parse(url):
-              req = Request(url, headers={
-                  "User-Agent": "kimchi-workshop-bot/1.0",
-                  "Accept": "text/csv,*/*;q=0.8",
-              })
-              with urlopen(req, timeout=15) as r:
-                  raw = r.read()
-                  if raw[:2] == b"\x1f\x8b":
-                      import gzip
-                      raw = gzip.decompress(raw)
-              rows = list(csv.reader(io.StringIO(raw.decode())))
-              if not rows:
-                  return None
-              header = [h.strip().lower().replace(" ", "_") for h in rows[0]]
-              def col(*names):
-                  for n in names:
-                      if n in header:
-                          return header.index(n)
-                      for i, h in enumerate(header):
-                          if n in h:
-                              return i
-                  return None
-              cost_i = col("cost_usd", "cost", "spend_usd", "spend")
-              req_i = col("requests", "request_count", "api_calls")
-              model_i = col("model", "model_name")
-              total_cost, total_req, seen_models, n_rows = 0.0, 0, set(), 0
-              for dr in rows[1:]:
-                  n_rows += 1
-                  if cost_i is not None and cost_i < len(dr):
-                      try:
-                          total_cost += float(dr[cost_i] or 0)
-                      except ValueError:
-                          pass
-                  if req_i is not None and req_i < len(dr):
-                      try:
-                          total_req += int(dr[req_i] or 0)
-                      except ValueError:
-                          pass
-                  if model_i is not None and model_i < len(dr) and dr[model_i]:
-                      seen_models.add(dr[model_i])
-              return {
-                  "cost": round(total_cost, 4),
-                  "requests": total_req,
-                  "models": sorted(seen_models),
-                  "rows": n_rows,
-              }
-
-          csv_cost, csv_requests, csv_models, csv_rows, csv_source = (
-              0.0, 0, [], 0, "none")
-          head_repo = os.environ.get("HEAD_REPO", "")
-          head_branch = os.environ.get("HEAD_BRANCH", "")
-          branch_url = (
-              "https://raw.githubusercontent.com/%s/%s/kimchi-usage.csv"
-              % (head_repo, head_branch)
-          )
-          parsed = None
-          if head_repo and head_branch:
-              try:
-                  parsed = _fetch_and_parse(branch_url)
-                  if parsed:
-                      csv_source = "branch"
-              except Exception as e:
-                  print("branch csv fetch failed:", e, file=sys.stderr)
-
-          if parsed is None:
-              # fall back to searching PR comments for a linked csv
-              try:
-                  out = subprocess.run(
-                      ["gh", "api",
-                       "repos/%s/issues/%s/comments" % (
-                           os.environ.get("GITHUB_REPOSITORY",
-                                          "castai/kimchi-workshop"),
-                           os.environ["PR_NUMBER"]),
-                       "--paginate",
-                       "--jq", ".[].body"],
-                      capture_output=True, text=True,
-                      env={**os.environ,
-                           "GH_TOKEN": os.environ.get("GITHUB_TOKEN", "")},
-                  ).stdout
-                  m = re.search(
-                      r"https://[^\s)\"']*/kimchi-usage\.csv[^\s)\"']*",
-                      out,
-                  )
-                  if m:
-                      parsed = _fetch_and_parse(m.group(0))
-                      if parsed:
-                          csv_source = "comment"
-              except Exception as e:
-                  print("comment csv fetch failed:", e, file=sys.stderr)
-
-          # Hard refusal: no CSV anywhere -> mark this workflow run as
-          # "not recorded" and skip the leaderboard write entirely. The
-          # downstream steps (Comment the score, Publish acceptance email)
-          # check 'recorded' and skip themselves, so the participant does
-          # not get an acceptance email and no row lands on the leaderboard.
-          if parsed is None or parsed["rows"] == 0:
-              msg = ("Refused to accept %s on event %s: kimchi-usage.csv "
-                     "not present on branch top level nor in any PR "
-                     "comment attachment. Upload your CSV and re-label."
-                     % (handle, row.get("event", "default")))
-              print("::warning::" + msg)
-              out = os.environ.get("GITHUB_OUTPUT")
-              if out:
-                  with open(out, "a") as f:
-                      f.write("recorded=no\n")
-              sys.exit(0)
+          # ---- Kimchi usage (cost, requests, models)
+          # Costs are decided by the Kimchi API, not self-reports: the
+          # "Verify costs with the Kimchi API" step (right after this one)
+          # joins the participant's email to their org owner and stamps the
+          # real spend. No CSV upload exists anymore; cost/usage signals are
+          # filled there (and the breakdown recomputed), so they start at 0
+          # here.
           out = os.environ.get("GITHUB_OUTPUT")
           if out:
               with open(out, "a") as f:
                   f.write("recorded=yes\n")
-
-          csv_cost = parsed["cost"]
-          csv_requests = parsed["requests"]
-          csv_models = parsed["models"]
-          csv_rows = parsed["rows"]
-
-          row["csv_cost_total"] = round(csv_cost, 4)
-          row["csv_source"] = csv_source
-          row["requests"] = csv_requests
-          row["models_used"] = csv_models
-          row["csv_rows"] = csv_rows
-          if csv_cost:
-              row["cost_usd"] = round(csv_cost, 4)
 
           # ---- Commit count
           commit_count = 0
@@ -286,24 +170,19 @@ jobs:
           p_visible = visible_passed * 3
           # (2) Production tests, 26 points max (one point per check)
           p_prod = prod_passed
-          # (3) CSV models used, up to 10 points (2 per distinct model, cap 10)
-          p_models = min(10, 2 * len(csv_models)) if csv_rows > 0 else 0
-          # (4) CSV request count, log-scaled up to 10 points
-          #     (1 request = 0, 50+ = 10)
-          if csv_requests > 0:
-              p_requests = min(10, int(math.log2(csv_requests + 1) * 1.77))
-          else:
-              p_requests = 0
+          # (3) Kimchi-API models used, up to 10 points (2 per distinct
+          #     model, cap 10) — filled by the enrichment step from real
+          #     API usage; 0 here, recomputed after verification
+          p_models = 0
+          # (4) API request count, log-scaled up to 10 points
+          #     (1 request = 0, 50+ = 10) — same: enrichment recomputes
+          p_requests = 0
           # (5) Cost efficiency against a $2 budget, -10 to +10
           #     perfectly-efficient = $0 -> +10; exactly $2 -> +5; $10+ -> -10
+          #     decided by the API-verified cost in the enrichment step; 0
+          #     here so self-reported numbers never feed the score
           budget = 2.0
-          if csv_rows == 0:
-              p_cost = 0  # no CSV = no signal either way
-          elif csv_cost <= budget:
-              p_cost = 10 - 5 * (csv_cost / budget)
-          else:
-              over = csv_cost - budget
-              p_cost = -min(10, over / 1.0)
+          p_cost = 0
           # (6) Time-to-accept, -10 to +10 (faster is better, 24h scale)
           #     elapsed <= 2h -> +10; 4h -> +5; 8h -> 0; 24h -> -10
           h = elapsed_seconds / 3600
@@ -383,7 +262,12 @@ jobs:
         with:
           script: |
             const fs = require("fs");
-            const rec = JSON.parse(fs.readFileSync("record_for_inbox.json", "utf8"));
+            // Prefer the enriched record (API-verified cost/usage signals,
+            // recomputed breakdown) written after the Kimchi verification
+            // step; fall back to the raw recorded row if enrichment no-oped.
+            const raw = JSON.parse(fs.readFileSync("record_for_inbox.json", "utf8"));
+            const enrichedPath = "records/" + (raw.event || "default") + "-" + (raw.attendee || "unknown") + ".json";
+            const rec = fs.existsSync(enrichedPath) ? JSON.parse(fs.readFileSync(enrichedPath, "utf8")) : raw;
             const board = JSON.parse(fs.readFileSync("leaderboard.json", "utf8"));
             const event = rec.event || "default";
             const ranked = (board.events[event] && board.events[event].rows) || [];
@@ -400,7 +284,7 @@ jobs:
               "| Rank in **" + event + "** | #" + rank + " of " + ranked.length + " |",
               "| Visible | " + rec.tests_passed + "/" + ((rec.tests_passed||0)+(rec.tests_failed||0)) + " |",
               "| Production | " + (rec.production_passed||0) + "/" + (rec.production_total||0) + " |",
-              "| CSV cost | $" + (rec.cost_usd||0).toFixed(2) + " across " + (rec.requests||0) + " requests |",
+              "| Cost (API-verified) | $" + (rec.cost_usd||0).toFixed(2) + " across " + (rec.requests||0) + " requests" + (rec.usage_verified ? " ✓" : " — not verified") + " |",,
               "| Models used | " + ((rec.models_used||[]).length) + " (" + (rec.models_used||[]).join(", ") + ")" + " |",
               "| Commits | " + (rec.commits||0) + " |",
               "| Time to accept | " + fmt(rec.elapsed_hours||0) + " h |",
@@ -437,8 +321,13 @@ jobs:
         run: |
           set -e
           python3 - <<'EOF'
-          import json
-          row = json.load(open("record_for_inbox.json"))
+          import json, os
+          raw = json.load(open("record_for_inbox.json"))
+          # prefer the enriched record (API-verified cost/usage + recomputed
+          # breakdown); fall back to the raw recorded row if enrichment no-oped
+          enriched = "records/%s-%s.json" % (raw.get("event", "default"),
+                                             raw.get("attendee", "unknown"))
+          row = json.load(open(enriched)) if os.path.exists(enriched) else raw
           event = row.get("event", "default")
           board = json.load(open("leaderboard.json"))
           ranked = (board.get("events", {}).get(event) or {}).get("rows") or []
@@ -476,10 +365,9 @@ jobs:
               + "\n"
               "Now that the workshop considers you 'done', here is the full handoff:\n"
               "\n"
-              "  1. Usage metrics: your Kimchi key spend lives in\n"
-              "     https://app.kimchi.dev/usage . Download the CSV from that page —\n"
-              "     the CSV is what the leaderboard uses to attribute your cost.\n"
-              "     If you haven't uploaded it yet, drop it as an attachment on your PR.\n"
+              "  1. Usage metrics: your spend was verified automatically from\n"
+              "     the Kimchi API — nothing to upload. You can see the same\n"
+              "     numbers on your Usage page at https://app.kimchi.dev/usage .\n"
               "\n"
               "  2. Post-acceptance scan: the production workflow re-runs nightly\n"
               "     against your branch. If a regression slips in before Monday,\n"
@@ -536,30 +424,6 @@ jobs:
             echo "push attempt $i hit a race; retrying in 5s"
             sleep 5
           done
-
-      - name: Post "CSV still required" comment when recording is refused
-        if: steps.record.outputs.recorded == 'no'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.payload.number,
-              body: [
-                "**Leaderboard recording refused.**",
-                "",
-                "The facilitator labelled this PR `accepted` but I can't find",
-                "`kimchi-usage.csv` anywhere usable:",
-                "- Not at the top level of the head branch",
-                "- Not as a CSV attachment uploaded in any PR comment",
-                "",
-                "Upload the export from https://app.kimchi.dev/usage either as a",
-                "file named `kimchi-usage.csv` in the branch, or as a comment",
-                "attachment (drag-drop onto the comment box). Then re-apply the",
-                "`accepted` label.",
-              ].join("\n"),
-            });
 
       - name: Deploy UI to Pages
         if: steps.record.outputs.recorded == 'yes'

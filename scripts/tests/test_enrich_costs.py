@@ -27,11 +27,14 @@ ROSTER = {
     "email_to_id": {"alice@example.com": "uid-alice"},
     "id_to_email": {"uid-alice": "alice@example.com"},
 }
-ORG_SPEND = {"uid-alice": {"cost_usd": 12.3456, "requests": 300}}
+ORG_SPEND = {"uid-alice": {"cost_usd": 12.3456, "requests": 300,
+                           "models_used": ["glm-x", "glm-y"]}}
 TAG_USAGE = {"cost_usd": 0.50, "requests": 42,
              "models_used": ["glm-x"], "rows": 1}
-TAG_OWNERS_SAME = {"uid-alice": {"cost_usd": 0.50, "requests": 42}}
-TAG_OWNERS_OTHER = {"uid-someone": {"cost_usd": 0.50, "requests": 42}}
+TAG_OWNERS_SAME = {"uid-alice": {"cost_usd": 0.50, "requests": 42,
+                                 "models_used": ["glm-x"]}}
+TAG_OWNERS_OTHER = {"uid-someone": {"cost_usd": 0.50, "requests": 42,
+                                    "models_used": ["glm-x"]}}
 NOW = "2026-11-06T12:00:00+00:00"
 
 
@@ -79,10 +82,15 @@ class FormulaTest(unittest.TestCase):
     def test_recompute_updates_breakdown_and_points(self):
         record = base_record()  # cost_usd stays 1.11
         record["usage_verified"] = True
+        record["requests"] = 300
+        record["models_used"] = ["glm-x", "glm-y"]
         self.assertTrue(recompute_points(record, 2.0))
+        # models 2 -> 4 pts; requests 300 -> log2(301)*1.77 -> 10 pts;
         # 10 - 5*(1.11/2) = 7.225 -> 7.22 (float repr)
+        self.assertEqual(record["score_breakdown"]["models_used"], 4)
+        self.assertEqual(record["score_breakdown"]["request_count"], 10)
         self.assertEqual(record["score_breakdown"]["cost_efficiency"], 7.22)
-        # 27+16+6+8+10+8+7+0+7.22
+        # 27+16+4+10+10+8+7+0+7.22
         self.assertEqual(record["points"], 89.22)
 
 
@@ -93,11 +101,16 @@ class EnrichRecordTest(unittest.TestCase):
         self.assertEqual(record["cost_usd"], 12.3456)   # owner total
         self.assertEqual(record["cost_csv_usd"], 1.11)  # audit trail
         self.assertEqual(record["requests"], 300)
+        self.assertEqual(record["models_used"], ["glm-x", "glm-y"])
         self.assertEqual(record["cost_source"], "kimchi_api")
         self.assertTrue(record["usage_verified"])
         self.assertEqual(record["api_owner_id"], "uid-alice")
-        # points recomputed: 10 - 5*(12.3456/2) -> capped at -10
+        # full breakdown recompute: models 2 -> 4 pts, requests 300 -> 10,
+        # cost 12.3456 vs $2 budget -> capped at -10
+        self.assertEqual(record["score_breakdown"]["models_used"], 4)
+        self.assertEqual(record["score_breakdown"]["request_count"], 10)
         self.assertEqual(record["score_breakdown"]["cost_efficiency"], -10)
+        # 27+16+4+10-10+10+8+7+0
         self.assertEqual(record["points"], 72.0)
 
     def test_matching_tag_owner_is_not_flagged(self):
