@@ -1,22 +1,15 @@
 #!/usr/bin/env python3
-"""Score a workshop submission.
+"""Score a workshop submission (offline/standalone variant).
 
-Reads the repo state (tests) and a Kimchi console export (usage CSV) and
-prints a leaderboard row per attendee.
+Reads the repo state (tests) and prints a leaderboard row per attendee.
+Cost is NOT taken from usage CSVs anymore: spend is decided by the Kimchi
+API in the leaderboard pipeline (scripts/enrich_costs.py, email -> owner
+join). This tool accepts an informational --cost-usd placeholder that earns
+no efficiency signal on its own.
 
-    python scripts/score.py --attendee alice --usage export-alice.csv --pr https://...
-
-The usage CSV is the per-attendee export from the Kimchi console
-(Usage page -> filter by attendee tag -> Export). The parser tolerates extra
-columns and both 'cost_usd' and 'cost' spellings.
-
-Scoring model (full rationale in the private facilitator pack):
-    points = output (tests, review score) + efficiency (cost vs budget)
-Output first, cost second: the penalty is capped so high output always beats
-a cheap no-op, and there is no minimum-spend floor.
+    python scripts/score.py --attendee alice --pr https://...
 """
 import argparse
-import csv
 import json
 import os
 import re
@@ -38,48 +31,6 @@ def run_tests():
         m = re.search(r"(\d+) " + word, out)
         return int(m.group(1)) if m else 0
     return grab("passed"), grab("failed") + grab("error")
-
-
-def parse_usage_csv(path):
-    """Parse a Kimchi console usage export. Returns metric dict."""
-    if not path or not os.path.exists(path):
-        return {}
-    with open(path, newline="") as f:
-        rows = list(csv.DictReader(f))
-    if not rows:
-        return {}
-
-    def col(*names):
-        for n in names:
-            for c in rows[0].keys():
-                if c.strip().lower().replace(" ", "_") == n:
-                    return c
-        return None
-
-    c_cost = col("cost_usd", "cost", "spend_usd", "spend")
-    c_req = col("requests", "request_count", "api_calls")
-    c_model = col("model", "model_name")
-
-    total_cost, total_requests, models = 0.0, 0, set()
-    for row in rows:
-        if c_cost:
-            try:
-                total_cost += float(row[c_cost] or 0)
-            except ValueError:
-                pass
-        if c_req:
-            try:
-                total_requests += int(row[c_req] or 0)
-            except ValueError:
-                pass
-        if c_model and row[c_model]:
-            models.add(row[c_model])
-    return {
-        "cost_usd": round(total_cost, 4),
-        "requests": total_requests,
-        "models_used": sorted(models),
-        "rows": len(rows),
-    }
 
 
 def compute_points(tests_passed, review_score, cost_usd, budget_usd,
@@ -105,7 +56,9 @@ def compute_points(tests_passed, review_score, cost_usd, budget_usd,
 def main():
     ap = argparse.ArgumentParser(description="Score a workshop submission")
     ap.add_argument("--attendee", required=True, help="attendee handle")
-    ap.add_argument("--usage", help="Kimchi console usage export CSV for this attendee")
+    ap.add_argument("--cost-usd", type=float, default=0.0,
+                    help="informational cost placeholder; the leaderboard "
+                         "pipeline decides cost from the Kimchi API")
     ap.add_argument("--pr", help="pull request URL (informational)")
     ap.add_argument("--review-score", type=float,
                     default=float(os.environ.get("KIMCHI_REVIEW_SCORE", 0) or 0),
@@ -118,12 +71,9 @@ def main():
     args = ap.parse_args()
 
     passed, failed = run_tests()
-    usage = parse_usage_csv(args.usage)
-    cost_usd = usage.get("cost_usd", 0.0)
-    has_usage_evidence = bool(usage) and usage.get("rows", 0) > 0
     points = compute_points(
-        passed, args.review_score, cost_usd, args.budget,
-        evidence=has_usage_evidence,
+        passed, args.review_score, args.cost_usd, args.budget,
+        evidence=False,  # no usage evidence offline; the API path decides
     )
 
     record = {
@@ -135,9 +85,9 @@ def main():
         "tests_passed": passed,
         "tests_failed": failed,
         "review_score": args.review_score,
-        "cost_usd": cost_usd,
-        "requests": usage.get("requests", 0),
-        "models_used": usage.get("models_used", []),
+        "cost_usd": args.cost_usd,
+        "requests": 0,
+        "models_used": [],
         "points": points,
         "scoring_config": {"budget_usd": args.budget},
     }
