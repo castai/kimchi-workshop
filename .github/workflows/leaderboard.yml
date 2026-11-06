@@ -358,6 +358,13 @@ jobs:
               json.dump(row, f)
           EOF
 
+      - name: Verify costs with the Kimchi API
+        if: steps.record.outputs.recorded == 'yes'
+        env:
+          KIMCHI_API_KEY: ${{ secrets.KIMCHI_API_KEY }}
+          KIMCHI_ORG_ID: ${{ vars.KIMCHI_ORG_ID }}
+        run: python scripts/enrich_costs.py --records records/
+
       - name: Rebuild leaderboard
         if: steps.record.outputs.recorded == 'yes'
         run: python scripts/aggregate.py --records records/ --out leaderboard.json
