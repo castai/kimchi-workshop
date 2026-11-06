@@ -25,17 +25,17 @@ from kimchi_usage import (  # noqa: E402
 OWNER_REPORT = {
     "cost": {"items": [
         {"models": [
-            {"totalCost": "1.25",
+            {"model": "glm-x", "totalCost": "1.25",
              "castaiApiKeyMetadata": {"ownerType": "USER",
                                       "ownerId": "u-1"}},
-            {"totalCost": "10.00",  # service account: excluded
+            {"model": "glm-big", "totalCost": "10.00",  # service account
              "castaiApiKeyMetadata": {"ownerType": "SERVICE_ACCOUNT",
                                       "ownerId": "sa-9"}},
             {"totalCost": "99.00",  # no owner id: excluded
              "castaiApiKeyMetadata": {"ownerType": "USER", "ownerId": ""}},
         ]},
         {"models": [
-            {"totalCost": "0.75",
+            {"model": "glm-y", "totalCost": "0.75",
              "castaiApiKeyMetadata": {
                  "ownerType": "CAST_AI_API_KEY_OWNER_TYPE_USER",
                  "ownerId": "u-1"}},
@@ -43,10 +43,10 @@ OWNER_REPORT = {
     ]},
     "apiCalls": {"items": [
         {"models": [
-            {"totalCount": "3",
+            {"model": "glm-x", "totalCount": "3",
              "castaiApiKeyMetadata": {"ownerType": "USER",
                                       "ownerId": "u-1"}},
-            {"totalCount": "7",
+            {"model": "glm-x", "totalCount": "7",
              "castaiApiKeyMetadata": {"ownerType": "USER",
                                       "ownerId": "u-2"}},
         ]},
@@ -75,6 +75,8 @@ class OwnerSpendTest(unittest.TestCase):
         self.assertEqual(spend["u-1"]["requests"], 3)
         self.assertEqual(spend["u-2"]["requests"], 7)
         self.assertAlmostEqual(spend["u-2"]["cost_usd"], 0.0)
+        self.assertEqual(spend["u-1"]["models_used"], ["glm-x", "glm-y"])
+        self.assertEqual(spend["u-2"]["models_used"], ["glm-x"])
 
     def test_malformed_numbers_are_tolerated(self):
         payload = {"cost": {"items": [{"models": [

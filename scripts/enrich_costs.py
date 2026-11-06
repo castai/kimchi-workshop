@@ -36,6 +36,7 @@ Kimchi had a bad day.
 import argparse
 import glob
 import json
+import math
 import os
 import sys
 from datetime import datetime, timedelta, timezone
@@ -69,13 +70,31 @@ def cost_efficiency_points(cost_usd, budget, has_signal):
     return round(-min(10, over / 1.0 if budget > 0 else over), 2)
 
 
+def models_points(models_used):
+    """v2 formula from leaderboard.yml: up to 10 points (2 per model)."""
+    return min(10, 2 * len(models_used or []))
+
+
+def request_points(requests):
+    """v2 formula from leaderboard.yml: log-scaled up to 10 (50+ = 10)."""
+    if requests <= 0:
+        return 0
+    return min(10, int(math.log2(requests + 1) * 1.77))
+
+
 def recompute_points(record, budget):
-    """Refresh cost_efficiency + points in place; returns True if changed."""
+    """Refresh the API-sourced breakdown components (models, requests,
+    cost efficiency) + points in place; returns True if changed."""
     breakdown = record.get("score_breakdown")
     if not isinstance(breakdown, dict):
         return False
     has_signal = bool(record.get("usage_verified")
                       or record.get("csv_rows", 0) > 0)
+    if record.get("usage_verified"):
+        # API evidence replaces the CSV-era signals wholesale
+        breakdown["models_used"] = models_points(record.get("models_used"))
+        breakdown["request_count"] = request_points(
+            int(record.get("requests") or 0))
     breakdown["cost_efficiency"] = cost_efficiency_points(
         float(record.get("cost_usd") or 0.0), budget, has_signal)
     record["points"] = round(sum(float(v or 0) for v in breakdown.values()), 2)
@@ -158,6 +177,8 @@ def enrich_record(record, roster, owner_spend, now_iso, budget, verify,
             record["cost_csv_usd"] = record.get("cost_usd")
         record["cost_usd"] = round(float(spend["cost_usd"]), 4)
         record["requests"] = int(spend["requests"])
+        if spend.get("models_used"):
+            record["models_used"] = spend["models_used"]
         record["cost_source"] = COST_SOURCE_API
         record["usage_verified"] = True
         record["api_owner_id"] = uid
@@ -177,6 +198,8 @@ def enrich_record(record, roster, owner_spend, now_iso, budget, verify,
                 record["cost_csv_usd"] = record.get("cost_usd")
             record["cost_usd"] = round(float(usage["cost_usd"]), 4)
             record["requests"] = int(usage["requests"])
+            if usage.get("models_used"):
+                record["models_used"] = usage["models_used"]
             record["cost_source"] = COST_SOURCE_API
             record["usage_verified"] = True
             record["api_usage_fetched_at"] = now_iso
