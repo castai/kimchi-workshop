@@ -34,9 +34,10 @@ jobs:
         with:
           python-version: "3.12"
 
-      # Only install pytest - never the PR's requirements.txt. The tests
-      # only need Python's stdlib + pytest to import and exercise the app.
-      - run: pip install pytest
+      # Install only the runner-side deps the suite needs - never the PR's
+      # requirements.txt (untrusted version pins). The app imports flask;
+      # without it every non-trivial test errors at fixture setup.
+      - run: pip install pytest flask requests
 
       # Visible suite (the score gate)
       - name: Score the submission (visible suite)
@@ -92,7 +93,7 @@ jobs:
             with open('prod_log.md', 'w') as f:
                 f.write('Production score: 0/26 (hidden tests not available)\n')
                 f.write('Visible suite ran; hidden stage data not yet wired up.\n')
-            EOF
+          EOF
           fi
           cat prod_log.md
 
