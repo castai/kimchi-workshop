@@ -46,5 +46,8 @@
     "commit_discipline": 8,
     "code_quality": 0,
     "full_clear_bonus": 0
-  }
+  },
+  "usage_verified": false,
+  "cost_source": "csv",
+  "email_not_in_kimchi": true
 }
