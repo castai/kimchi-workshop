@@ -34,7 +34,10 @@ from score import compute_points, run_tests  # noqa: E402
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 DEFAULT_BUDGET = 2.00
-REQUIRED_FIELDS = ("attendee", "email", "event", "cost_usd")
+# cost_usd is deliberately NOT required anymore: spend is decided by the
+# Kimchi API at leaderboard time (email -> owner join). A value typed here is
+# kept only as an audit placeholder until the API overwrites it.
+REQUIRED_FIELDS = ("attendee", "email", "event")
 
 
 def parse_body(body):
@@ -118,8 +121,11 @@ def main():
 
     # The production scenario is a separate CI job; its score merges at the
     # leaderboard aggregation step. This job is the visible-suite gate.
-    evidence = True
-    cost_val = cost_usd
+    # A self-reported cost earns no efficiency signal here: the leaderboard's
+    # enrichment step decides cost from the Kimchi API and recomputes the
+    # breakdown. The typed value (if any) is carried as an audit placeholder.
+    evidence = cost_usd is not None
+    cost_val = cost_usd if cost_usd is not None else 0.0
     review_val = 0.0  # Kimchi review posts separately; leaderboard merges it
     points = compute_points(passed, review_val, cost_val, args.budget,
                             evidence=evidence)
@@ -157,7 +163,7 @@ def main():
 | Event | `%s` |
 | Tests passing | %d passed, %d failed |
 | Review score | (pending Kimchi review) |
-| Cost | $%.2f (self-reported) |
+| Cost | $%.2f (self-reported placeholder; the API decides at leaderboard time) |
 | **Points** | **%.2f** |
 
 The production scenario runs as a separate check; its result merges here
