@@ -9,8 +9,21 @@
       },
       "category": "welcome",
       "subject": "Welcome aboard, Matas Kaminskas",
-      "body": "Settle in.\n\nThe task-api incident sits on the table. Sam's first briefing on the left explains the rollback and where your runtime sits now \u2014 start there.\n\nYour start time just got logged for event KOL-001 (issue #62). Credit allocation goes to the facilitator's queue; once credits post, the agent is live on your fork.\n\nRead the briefings in order, then fork and ship a PR. We'll keep score.",
+      "body": "Settle in.\n\nThe task-api incident sits on the table. Sam's first briefing on the left explains the rollback and where your runtime sits now — start there.\n\nYour start time just got logged for event KOL-001 (issue #62). Credit allocation goes to the facilitator's queue; once credits post, the agent is live on your fork.\n\nRead the briefings in order, then fork and ship a PR. We'll keep score.",
       "timestamp": "2026-11-04 09:25 UTC"
+    },
+    {
+      "id": "accepted-pr-68",
+      "from": {
+        "name": "Sam Carter",
+        "role": "VP Engineering",
+        "bg": "#b3261e"
+      },
+      "subject": "Submission accepted - you ranked",
+      "timestamp": "2026-11-06 13:01 UTC",
+      "category": "score",
+      "body": "Hi —\n\nAccepted. The facilitator has reviewed the PR, the suite, and the production story. Your submission is on the board.\n\n  Points: 61.49\n  Rank in KOL-001: #1 of 2\n  Visible checks: 9 passed\n  Production checks: 15/26\n  Your spend: $0.20 over 67 requests\n  Models used: glm-5.3-flash\n  Commits on the PR: 6\n  Time since join: 51.61 hours\n\nScore breakdown:\n  - visible tests: 27.00\n  - production tests: 15.00\n  - models used: 2.00\n  - request count: 10.00\n  - cost efficiency: 9.49\n  - time to accept: -10.00\n  - commit discipline: 8.00\n  - code quality: 0.00\n  - full clear bonus: 0.00\n\nNow that the workshop considers you 'done', here is the full handoff:\n\n  1. Usage metrics: your Kimchi key spend lives in\n     https://app.kimchi.dev/usage . Download the CSV from that page —\n     the CSV is what the leaderboard uses to attribute your cost.\n     If you haven't uploaded it yet, drop it as an attachment on your PR.\n\n  2. Post-acceptance scan: the production workflow re-runs nightly\n     against your branch. If a regression slips in before Monday,\n     it will fire the same incident engine we used here — useful\n     context, no action needed from you unless that email pings you.\n\n  3. Next steps: hand the repo to the next engineer on your team.\n     They start at the same briefing inbox you did.\n\nThe PR stays open in the queue for audit, but the leaderboard row is permanent. If you want to see the production story that got you here, check your inbox — Alex sent it already.\n\nNow go help the next person. The company is in good hands.\n\n— Sam",
+      "pr_url": "https://github.com/castai/kimchi-workshop/pull/68"
     }
   ]
 }
