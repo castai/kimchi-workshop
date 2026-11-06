@@ -94,7 +94,7 @@ jobs:
           run-id: ${{ github.event.workflow_run.id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Gate: production score must be at least 15/26
+      - name: "Gate: production score must be at least 15/26"
         continue-on-error: true
         run: |
           python3 - <<'EOF'
