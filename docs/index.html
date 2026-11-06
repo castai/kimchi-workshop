@@ -244,6 +244,9 @@
   .medal { font-size: 14px; margin-right: 3px; }
   .handle { font-weight: 600; }
   .gh { color: var(--muted); font-size: 12px; }
+  .email-line { user-select: all; }
+  .verified { color: #16a34a; font-weight: 700; cursor: help; }
+  .mismatch { color: #d97706; font-weight: 700; cursor: help; }
   .pts { font-weight: 700; color: var(--accent); }
   .bar { height: 5px; width: 100%; background: var(--bg); border-radius: 3px; overflow: hidden; margin-top: 4px; }
   .bar i { display: block; height: 100%; background: linear-gradient(90deg, #16a34a, #4ade80); border-radius: 3px; }
@@ -771,13 +774,14 @@ function renderBoard() {
       <td>
         <div class="handle">${esc(r.name || r.attendee || "?")}</div>
         <div class="gh">${r.github ? "@" + esc(r.github) : (r.name && r.attendee && r.attendee !== r.name ? esc(r.attendee) : "")}</div>
+        ${r.email ? `<div class="gh email-line">${esc(r.email)}</div>` : ""}
       </td>
       <td>${r.pr_url ? `<a href="${esc(r.pr_url)}" target="_blank" rel="noopener">#${r.pr}</a>` : (r.pr || "")}</td>
       <td>
         <div>${r.tests_passed || 0} <span class="gh">/ ${testedCount(r)}</span></div>
         <div class="bar"><i style="width:${(r.tests_passed || 0) / testedCount(r) * 100}%"></i></div>
       </td>
-      <td>$${(r.cost_usd || 0).toFixed(2)}</td>
+      <td>$${(r.cost_usd || 0).toFixed(2)}${r.cost_source === "kimchi_api" ? ' <span class="verified" title="verified via Kimchi API">✓</span>' : ""}${r.tag_email_mismatch ? ' <span class="mismatch" title="attendee-tag spend and email-matched spend disagree — check with the facilitator">⚠</span>' : ""}</td>
       <td class="pts">${(r.points || 0).toFixed(2)}
         <div class="bar"><i style="width:${(r.points || 0) / max * 100}%"></i></div>
       </td>

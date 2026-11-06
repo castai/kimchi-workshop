@@ -1,0 +1,61 @@
+name: Kimchi API check
+
+# Manual smoke test for the leaderboard's Kimchi credentials. Verifies that
+# the KIMCHI_API_KEY secret can reach both endpoints the leaderboard needs —
+# the org roster (IAM READ) and per-owner analytics — for the org in the
+# KIMCHI_ORG_ID variable. Prints counts and totals only; never key material,
+# never member emails. Run: Actions -> Kimchi API check -> Run workflow.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Probe roster + analytics with the leaderboard secret
+        env:
+          KIMCHI_API_KEY: ${{ secrets.KIMCHI_API_KEY }}
+          KIMCHI_ORG_ID: ${{ vars.KIMCHI_ORG_ID }}
+        run: |
+          python - <<'EOF'
+          import sys
+          from datetime import datetime, timedelta, timezone
+
+          sys.path.insert(0, "scripts")
+          from kimchi_usage import (KimchiUsageError, fetch_org_users,
+                                    fetch_owner_costs, resolve_api_key,
+                                    resolve_org_id)
+
+          key = resolve_api_key()
+          org = resolve_org_id()
+          if not key:
+              print("::error::KIMCHI_API_KEY secret is empty or missing")
+              sys.exit(1)
+          print("probing org:", org)
+
+          now = datetime.now(timezone.utc)
+          start = (now - timedelta(days=30)).strftime("%Y-%m-%dT%H:%M:%SZ")
+          try:
+              roster = fetch_org_users(key, org)
+              print("roster: %d members with emails" %
+                    len(roster["email_to_id"]))
+              spend = fetch_owner_costs(
+                  key, org, start, now.strftime("%Y-%m-%dT%H:%M:%SZ"))
+              total = sum(v["cost_usd"] for v in spend.values())
+              print("analytics: %d owners, $%.2f spend in last 30d" %
+                    (len(spend), total))
+          except KimchiUsageError as e:
+              print("::error::Kimchi API check failed: %s" % e)
+              sys.exit(1)
+          print("OK: KIMCHI_API_KEY works for this org")
+          EOF
