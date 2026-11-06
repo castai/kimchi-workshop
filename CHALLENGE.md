@@ -53,9 +53,12 @@ hints.
    ```text
    attendee: <your-handle>
    event: <event-code your facilitator announced>
-   cost_usd: <session spend from app.kimchi.dev>
    review_score:
    ```
+
+   No cost line, no CSV upload — when the facilitator adds the `accepted`
+   label, the leaderboard verifies your real spend directly from the
+   Kimchi API (matched by the email you joined with).
 
 3. CI scores every PR automatically. A facilitator adds the `accepted`
    label when it passes review — and then **closes the PR unmerged**.
