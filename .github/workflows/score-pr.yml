@@ -85,15 +85,12 @@ jobs:
             python .verification/format_prod_log.py /tmp/prod.xml prod_log.md 2>/dev/null \
               || python .verification/format_prod_log.py /tmp/prod.xml prod_log.md
           else
-            # No hidden tests available, fabricate a passing log so the
-            # downstream production.yml gate doesn't block on artifacts
-            # being absent.
-            mkdir -p /tmp
-            python3 - <<'EOF'
-            with open('prod_log.md', 'w') as f:
-                f.write('Production score: 0/26 (hidden tests not available)\n')
-                f.write('Visible suite ran; hidden stage data not yet wired up.\n')
-          EOF
+            # No hidden tests available, fabricate a log so the downstream
+            # production.yml gate reports the gap instead of missing artifacts.
+            printf '%s\n' \
+              'Production score: 0/26 (hidden tests not available)' \
+              'Visible suite ran; hidden stage data not yet wired up.' \
+              > prod_log.md
           fi
           cat prod_log.md
 
