@@ -18,6 +18,8 @@ on:
 permissions:
   contents: read
   actions: write  # so we can publish artifacts the downstream workflow consumes
+  pull-requests: write  # production report + auto-review verdict + accepted label
+  issues: write  # label + comment APIs live under issues/
 
 jobs:
   score:
@@ -34,9 +36,10 @@ jobs:
         with:
           python-version: "3.12"
 
-      # Only install pytest - never the PR's requirements.txt. The tests
-      # only need Python's stdlib + pytest to import and exercise the app.
-      - run: pip install pytest
+      # Install only the runner-side deps the suite needs - never the PR's
+      # requirements.txt (untrusted version pins). The app imports flask;
+      # without it every non-trivial test errors at fixture setup.
+      - run: pip install pytest flask requests
 
       # Visible suite (the score gate)
       - name: Score the submission (visible suite)
@@ -84,15 +87,12 @@ jobs:
             python .verification/format_prod_log.py /tmp/prod.xml prod_log.md 2>/dev/null \
               || python .verification/format_prod_log.py /tmp/prod.xml prod_log.md
           else
-            # No hidden tests available, fabricate a passing log so the
-            # downstream production.yml gate doesn't block on artifacts
-            # being absent.
-            mkdir -p /tmp
-            python3 - <<'EOF'
-            with open('prod_log.md', 'w') as f:
-                f.write('Production score: 0/26 (hidden tests not available)\n')
-                f.write('Visible suite ran; hidden stage data not yet wired up.\n')
-            EOF
+            # No hidden tests available, fabricate a log so the downstream
+            # production.yml gate reports the gap instead of missing artifacts.
+            printf '%s\n' \
+              'Production score: 0/26 (hidden tests not available)' \
+              'Visible suite ran; hidden stage data not yet wired up.' \
+              > prod_log.md
           fi
           cat prod_log.md
 
@@ -113,6 +113,97 @@ jobs:
           name: submission-prod-score
           path: prod_log.md
           if-no-files-found: ignore
+
+      # The seed's reporting cascade (production.yml on workflow_run) has
+      # never fired in this repo: no workflow_run-typed run has been created
+      # since the Oct 28 split, so production reports, auto-review and the
+      # accepted label never happen for any submission. Same-repo
+      # pull_request runs DO get repo secrets and a writable token, so the
+      # report + review pipeline runs here instead: same artifacts, same
+      # trusted grader (auto_review.py from the answers repo, fetched at
+      # run time), same verdict semantics as production.yml.
+      - name: Post production report on the PR
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          [ -f prod_log.md ] || { echo "no production log produced"; exit 0; }
+          gh pr comment "$PR_NUMBER" --repo "${{ github.repository }}" \
+            --body-file prod_log.md
+
+      - name: Auto-review gates
+        id: review
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ANSWERS_REPO_PAT: ${{ secrets.ANSWERS_REPO_PAT }}
+          KIMCHI_API_KEY: ${{ secrets.KIMCHI_API_KEY }}
+          KIMCHI_REVIEW_MODEL: ${{ secrets.KIMCHI_REVIEW_MODEL }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          set -e
+          [ -f prod_log.md ] || { echo "::error::no production log; review skipped"; exit 1; }
+          curl -sSfL \
+            -H "Authorization: Bearer $ANSWERS_REPO_PAT" \
+            -H "Accept: application/vnd.github.v3.raw" \
+            -o auto_review.py \
+            "https://api.github.com/repos/castai/kimchi-workshop-answers/contents/.verification/auto_review.py?ref=verification"
+          V_PASS=$(python3 -c "import json;d=json.load(open('score.json'));print(d.get('tests_passed',0))")
+          V_TOTAL=$(python3 -c "import json;d=json.load(open('score.json'));print(d.get('tests_passed',0)+d.get('tests_failed',0))")
+          V_PASS="$V_PASS" V_TOTAL="$V_TOTAL" PR_BODY="$PR_BODY" \
+          GITHUB_REPOSITORY="${{ github.repository }}" PR_NUMBER="$PR_NUMBER" \
+          HEAD_REPO="$HEAD_REPO" HEAD_BRANCH="$HEAD_BRANCH" \
+          KIMCHI_API_KEY="$KIMCHI_API_KEY" KIMCHI_REVIEW_MODEL="$KIMCHI_REVIEW_MODEL" \
+          GITHUB_TOKEN="$GITHUB_TOKEN" \
+          python3 auto_review.py
+
+      - name: Act on auto-review verdict
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          ACCEPT: ${{ steps.review.outputs.accept }}
+          FAILURES: ${{ steps.review.outputs.failures }}
+          V_PASS: ${{ steps.review.outputs.vpass }}
+          V_TOTAL: ${{ steps.review.outputs.vtotal }}
+          PROD_SCORE: ${{ steps.review.outputs.prod_score }}
+        run: |
+          set -e
+          [ -n "$ACCEPT" ] || { echo "no verdict (review step did not run)"; exit 0; }
+
+          find_prior() {
+            gh pr view "$PR_NUMBER" --repo "${{ github.repository }}" \
+              --json comments --jq '.comments[] | select(.author.login == "github-actions[bot]" and (.body | startswith("Auto-review") or startswith("Auto-accepted"))) | .id' \
+              | tail -1
+          }
+          PRIOR_ID=$(find_prior || true)
+          if [ -n "$PRIOR_ID" ]; then
+            gh api "repos/${{ github.repository }}/issues/comments/$PRIOR_ID" -X DELETE || echo "prior verdict delete skipped"
+          fi
+
+          PROD_SCORE_INT=${PROD_SCORE:-0}
+          REMAINING=$((15 - PROD_SCORE_INT))
+          if [ "$REMAINING" -lt 0 ]; then REMAINING=0; fi
+
+          if [ "$ACCEPT" = "yes" ]; then
+            gh api "repos/${{ github.repository }}/issues/${PR_NUMBER}/labels" \
+              -X POST -f "labels[]=accepted" || echo "label add skipped"
+            printf 'Auto-accepted by the workshop bot.\n\n- Visible suite: %s/%s\n- Production: %s/26 (need 15)\n- CSV matches the reported cost.\n\nThe leaderboard workflow runs next; Sam Carter will mail your inbox once the row lands.\n' \
+              "$V_PASS" "$V_TOTAL" "$PROD_SCORE" > /tmp/accept_body.txt
+            gh pr comment "$PR_NUMBER" --repo "${{ github.repository }}" --body-file /tmp/accept_body.txt
+          else
+            {
+              printf 'Auto-review blocked. Fix and push again.\n\n'
+              printf '**Fix %s more production checks to clear the 15/26 gate.**\n\n' "$REMAINING"
+              printf '**Blocking:**\n'
+            } > /tmp/block_body.txt
+            echo "$FAILURES" | tr ';' '\n' | sed 's/^/- /' | grep -v '^- $' >> /tmp/block_body.txt
+            gh pr comment "$PR_NUMBER" --repo "${{ github.repository }}" --body-file /tmp/block_body.txt
+          fi
 
       - name: Show summary
         if: always()

@@ -25,31 +25,32 @@ class TaskStore:
             json.dump(data, f, indent=2)
 
     def _now(self):
-        return datetime.utcnow()
+        return datetime.now(timezone.utc)
 
     def gc_stale_tasks(self):
-        """Remove tasks that have been open too long (over STALE_DAYS days).
+        """Remove open tasks whose LAST ACTIVITY is older than STALE_DAYS.
 
-        BUG: recency is computed against (created_at, updated_at) - a task
-        created 10 days ago that the user keeps updating stays forever;
-        a task created yesterday that was updated once stays too. The
-        intended policy: age since LAST ACTIVITY (updated_at or
-        completed_at, whichever exists). Fix so an actively-updated task
-        survives and a never-touched old task is reaped.
+        Last activity is the LATEST of created_at, updated_at and
+        completed_at: a recent creation counts as activity even when a
+        sync brought a stale updated_at along, and an actively-updated
+        task survives regardless of its creation date. Tasks that are
+        not open are never reaped, regardless of age.
         """
         with self._lock:
             data = self._read()
             cutoff = self._now() - timedelta(days=self.stale_days)
             kept = []
             for t in data["tasks"]:
-                if t["status"] != "open":
+                if t.get("status") != "open":
                     kept.append(t)
                     continue
-                if t.get("updated_at"):
-                    if _parse(t["updated_at"]) >= cutoff:
-                        kept.append(t)
-                    continue
-                if _parse(t["created_at"]) > cutoff:
+                stamps = [
+                    _parse(t[field])
+                    for field in ("created_at", "updated_at", "completed_at")
+                    if t.get(field)
+                ]
+                last_activity = max(stamps) if stamps else _EARLIEST
+                if last_activity >= cutoff:
                     kept.append(t)
             data["tasks"] = kept
             self._write(data)
@@ -69,7 +70,7 @@ class TaskStore:
                 tid = inc["id"]
                 if tid in by_id:
                     local = by_id[tid]
-                    if _parse(inc.get("updated_at", "")) >= _parse(local.get("updated_at", "")):
+                    if _parse(inc.get("updated_at", "")) > _parse(local.get("updated_at", "")):
                         local.update(inc)
                 else:
                     by_id[tid] = dict(inc)
@@ -108,11 +109,13 @@ class TaskStore:
         return None
 
     def update_task(self, task_id, fields, now=None):
+        now = now or self._now()
         with self._lock:
             data = self._read()
             for t in data["tasks"]:
                 if t["id"] == task_id:
                     t.update(fields)
+                    t["updated_at"] = _iso(now)
                     self._write(data)
                     return t
         return None
@@ -142,9 +145,20 @@ class TaskStore:
         return False
 
 
+# Earliest representable time, UTC-aware so comparisons never mix naive and
+# aware datetimes.
+_EARLIEST = datetime.min.replace(tzinfo=timezone.utc)
+
+
 def _iso(dt):
     return dt.isoformat()
 
 
 def _parse(s):
-    return datetime.fromisoformat(s) if s else datetime.min
+    """Parse an ISO timestamp; naive values are assumed to be UTC."""
+    if not s:
+        return _EARLIEST
+    dt = datetime.fromisoformat(s)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt
