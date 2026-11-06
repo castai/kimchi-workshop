@@ -1,59 +1,8 @@
 {
-  "generated_at": "2026-11-06T13:01:57.076101+00:00",
+  "generated_at": "2026-11-06T17:27:04.927966+00:00",
   "events": {
     "KOL-001": {
       "rows": [
-        {
-          "attendee": "linkas45",
-          "email": "",
-          "github": "linkas45",
-          "event": "KOL-001",
-          "pr": 68,
-          "pr_url": "https://github.com/castai/kimchi-workshop/pull/68",
-          "pr_title": "[submission] linkas45 - restore docstring-contract policies (validation wiring, env secrets, merge/GC/cache/export)",
-          "status": "accepted",
-          "tests_passed": 9,
-          "tests_failed": 0,
-          "review_score": 0.0,
-          "cost_usd": 0.2038,
-          "cost_self_reported": true,
-          "requests": 67,
-          "models_used": [
-            "glm-5.3-flash"
-          ],
-          "points": 61.49,
-          "submitted_at": "2026-11-06T12:26:38.539856+00:00",
-          "scoring_config": {
-            "budget_usd": 2.0,
-            "production_total": 26,
-            "visible_total": 9,
-            "scoring_version": "v2"
-          },
-          "name": "",
-          "org": "Kimchi",
-          "designation": "EM",
-          "production_passed": 15,
-          "production_total": 26,
-          "csv_cost_total": 0.2038,
-          "csv_source": "branch",
-          "csv_rows": 1,
-          "commits": 6,
-          "accepted_at": "2026-11-06T13:01:57.014809+00:00",
-          "elapsed_seconds": 185809,
-          "elapsed_hours": 51.61,
-          "score_breakdown": {
-            "visible_tests": 27,
-            "production_tests": 15,
-            "models_used": 2,
-            "request_count": 10,
-            "cost_efficiency": 9.49,
-            "time_to_accept": -10,
-            "commit_discipline": 8,
-            "code_quality": 0,
-            "full_clear_bonus": 0
-          },
-          "rank": 1
-        },
         {
           "attendee": "kunalworldwide",
           "email": "kunalworldwide@gmail.com",
@@ -103,6 +52,57 @@
             "code_quality": 0,
             "full_clear_bonus": 0
           },
+          "usage_verified": false,
+          "cost_source": "csv",
+          "email_not_in_kimchi": true,
+          "rank": 1
+        },
+        {
+          "attendee": "linkas45",
+          "email": "",
+          "github": "linkas45",
+          "event": "KOL-001",
+          "pr": 73,
+          "pr_url": "https://github.com/castai/kimchi-workshop/pull/73",
+          "pr_title": "[submission] linkas45 - restore docstring-contract policies (API-verified costs)",
+          "status": "accepted",
+          "tests_passed": 9,
+          "tests_failed": 0,
+          "review_score": 0.0,
+          "cost_usd": 0.0,
+          "cost_self_reported": false,
+          "requests": 0,
+          "models_used": [],
+          "points": 23,
+          "submitted_at": "2026-11-06T17:02:39.707309+00:00",
+          "scoring_config": {
+            "budget_usd": 2.0,
+            "production_total": 0,
+            "visible_total": 9,
+            "scoring_version": "v2"
+          },
+          "name": "",
+          "org": "Kimchi",
+          "designation": "EM",
+          "production_passed": 0,
+          "production_total": 0,
+          "commits": 3,
+          "accepted_at": "2026-11-06T17:27:03.799794+00:00",
+          "elapsed_seconds": 201716,
+          "elapsed_hours": 56.03,
+          "score_breakdown": {
+            "visible_tests": 27,
+            "production_tests": 0,
+            "models_used": 0,
+            "request_count": 0,
+            "cost_efficiency": 0,
+            "time_to_accept": -10,
+            "commit_discipline": 6,
+            "code_quality": 0,
+            "full_clear_bonus": 0
+          },
+          "usage_verified": false,
+          "cost_source": "csv",
           "rank": 2
         }
       ],
