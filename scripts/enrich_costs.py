@@ -1,28 +1,26 @@
 #!/usr/bin/env python3
 """Stamp Kimchi-API-verified costs onto leaderboard records, mapped by email.
 
-The API is the deciding factor for cost; the email join verifies identity.
-For every accepted-submission record in --records:
+The API is the deciding factor for cost. Participants are fresh Kimchi
+accounts in the workshop org, so within the event window an owner's TOTAL
+spend is their workshop spend (facilitator-confirmed assumption). For every
+accepted-submission record in --records:
 
-  1. COST (primary) — the attendee's workshop spend is the tag-scoped usage
-     of `attendee:<handle>`, queried from the analytics API with the same
-     aggregation as the console CSV exporter. Self-reported numbers no
-     longer decide anything; on a hit the record gets the API cost,
-     request count, models, cost_source=kimchi_api, usage_verified=true,
-     and the previous (CSV/self-reported) cost is kept as cost_csv_usd.
-  2. IDENTITY (email mapping) — the tag's spend carries its API-key owner
-     id; the org roster (GET /v1/organizations/{org}/users) turns that into
-     the Kimchi-side email. It is compared with the submission email:
-       - equal            -> email_verified=true (the "same email in GH"
-                              assumption, now checked rather than trusted)
-       - differ           -> tag_email_mismatch=true (+ masked hint)
-       - no owner on tag  -> identity unknown; cost still API-verified
-  3. HINTS — when a record has no tag spend at all:
-       - claimed email's owner DID spend in the window -> forgot_tag=true
-         (facilitator hint: usage exists, the attendee tag is missing)
-       - claimed email not in the roster -> email_not_in_kimchi=true
-     In both cases the record keeps its CSV cost, unverified; never a
-     refusal.
+  1. COST (primary) — the record's email is joined through the org roster
+     (GET /v1/organizations/{org}/users -> email -> owner id) with org-wide
+     per-owner spend in the event window (analytics
+     GROUP_BY_API_KEY_OWNER). On a hit the record gets the API cost and
+     request count, cost_source=kimchi_api, usage_verified=true; the
+     previous (CSV/self-reported) cost is kept as cost_csv_usd. No
+     per-record cost call needed — the owner table is fetched once.
+  2. IDENTITY cross-check — the attendee tag's spend carries its own owner
+     id; if it differs from the email's owner the record is flagged
+     tag_email_mismatch (claimed someone else's account / shared key).
+  3. FALLBACK — no email match, or no spend: the record keeps its CSV cost,
+     marked usage_verified=false, with hints (email_not_in_kimchi when the
+     email is absent from the roster). Records with an attendee but no
+     email still get tag-scoped spend as their cost — attribution must not
+     depend on the email alone. Never a refusal.
 
 Where cost_usd changes, score_breakdown.cost_efficiency and points are
 recomputed with the exact v2 formula from .github/workflows/leaderboard.yml
@@ -59,14 +57,6 @@ COST_SOURCE_CSV = "csv"
 
 def normalize_email(email):
     return (email or "").strip().lower()
-
-
-def mask_email(email):
-    """PII-safe hint for published records: 'mat***@cast.ai'."""
-    if not email or "@" not in email:
-        return ""
-    local, _, domain = email.partition("@")
-    return "%s***@%s" % (local[:3], domain)
 
 
 def cost_efficiency_points(cost_usd, budget, has_signal):
@@ -145,11 +135,11 @@ def load_records(records_dir):
 
 def enrich_record(record, roster, owner_spend, now_iso, budget, verify,
                   api_key, org_id, base_url, fallback_start):
-    """Apply cost/identity/hint logic to one record in place.
+    """Apply total-cost/identity/fallback logic to one record in place.
 
     roster: {"email_to_id": ..., "id_to_email": ...} from the org users API
-    owner_spend: org-wide per-owner spend in the window (forgot-tag hints)
-    verify: also run the owner-identity (email) check
+    owner_spend: org-wide per-owner spend in the window (the cost source)
+    verify: also run the tag-owner identity cross-check
     Returns True if the record changed.
     """
     before = json.dumps(record, sort_keys=True)
@@ -159,55 +149,67 @@ def enrich_record(record, roster, owner_spend, now_iso, budget, verify,
     window_end = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     window_start = record_start(record, fallback_start)
 
-    # 1. COST: tag-scoped API spend is the deciding factor
-    usage = None
-    if tag and api_key:
+    # 1. COST: email -> owner id -> total spend in the window (fresh
+    #    participant accounts make owner-total = workshop spend)
+    uid = roster["email_to_id"].get(email) if email else None
+    spend = owner_spend.get(uid) if uid else None
+    if spend is not None:
+        if record.get("cost_csv_usd") is None and record.get("cost_usd") is not None:
+            record["cost_csv_usd"] = record.get("cost_usd")
+        record["cost_usd"] = round(float(spend["cost_usd"]), 4)
+        record["requests"] = int(spend["requests"])
+        record["cost_source"] = COST_SOURCE_API
+        record["usage_verified"] = True
+        record["api_owner_id"] = uid
+        record["api_usage_fetched_at"] = now_iso
+    elif tag and api_key:
+        # no email to join (or not in the roster) — fall back to the
+        # attendee tag so attribution does not depend on the email alone
         try:
             usage = fetch_tag_usage(api_key, org_id, tag, window_start,
                                     window_end, base_url)
         except KimchiUsageError as e:
             print("tag usage unavailable for %s: %s" % (attendee, e),
                   file=sys.stderr)
-    if usage and usage["rows"] > 0:
-        if record.get("cost_csv_usd") is None and record.get("cost_usd") is not None:
-            record["cost_csv_usd"] = record.get("cost_usd")
-        record["cost_usd"] = round(float(usage["cost_usd"]), 4)
-        record["requests"] = int(usage["requests"])
-        record["models_used"] = usage["models_used"]
-        record["cost_source"] = COST_SOURCE_API
-        record["usage_verified"] = True
-        record["api_usage_fetched_at"] = now_iso
-
-        # 2. IDENTITY: whose spend is the tag carrying?
-        if verify:
-            try:
-                tag_owners = fetch_owner_costs(
-                    api_key, org_id, window_start, window_end, base_url,
-                    tags=[tag])
-                uid = max(tag_owners, key=lambda u: tag_owners[u]["cost_usd"]) \
-                    if tag_owners else None
-            except KimchiUsageError as e:
-                print("tag owner lookup failed for %s: %s" % (attendee, e),
-                      file=sys.stderr)
-                uid = None
-            record["api_owner_id"] = uid
-            api_email = roster["id_to_email"].get(uid) if uid else None
-            if api_email:
-                record["api_email_masked"] = mask_email(api_email)
-                if email:
-                    verified = api_email == email
-                    record["email_verified"] = verified
-                    record["tag_email_mismatch"] = not verified
+            usage = None
+        if usage and usage["rows"] > 0:
+            if record.get("cost_csv_usd") is None and record.get("cost_usd") is not None:
+                record["cost_csv_usd"] = record.get("cost_usd")
+            record["cost_usd"] = round(float(usage["cost_usd"]), 4)
+            record["requests"] = int(usage["requests"])
+            record["cost_source"] = COST_SOURCE_API
+            record["usage_verified"] = True
+            record["api_usage_fetched_at"] = now_iso
+            record["cost_source_detail"] = "attendee_tag"
+        else:
+            record["usage_verified"] = False
+            if record.get("cost_usd") is not None:
+                record["cost_source"] = COST_SOURCE_CSV
+            if email and uid is None:
+                record["email_not_in_kimchi"] = True
     else:
-        # 3. FALLBACK + hints (never a refusal)
         record["usage_verified"] = False
         if record.get("cost_usd") is not None:
             record["cost_source"] = COST_SOURCE_CSV
-        uid = roster["email_to_id"].get(email) if email else None
-        if uid and (owner_spend.get(uid) or {}).get("cost_usd", 0) > 0:
-            record["forgot_tag"] = True
-        elif email and uid is None:
+        if email and uid is None:
             record["email_not_in_kimchi"] = True
+
+    # 2. IDENTITY cross-check: the tag's spend owner must be the email's
+    #    owner — catches claiming someone else's account or a shared key
+    if verify and tag and api_key and uid is not None:
+        try:
+            tag_owners = fetch_owner_costs(
+                api_key, org_id, window_start, window_end, base_url,
+                tags=[tag])
+            tag_uid = max(tag_owners, key=lambda u: tag_owners[u]["cost_usd"]) \
+                if tag_owners else None
+        except KimchiUsageError as e:
+            print("tag owner lookup failed for %s: %s" % (attendee, e),
+                  file=sys.stderr)
+            tag_uid = None
+        if tag_uid is not None:
+            record["tag_owner_id"] = tag_uid
+            record["tag_email_mismatch"] = bool(tag_uid != uid)
 
     if record.get("cost_source") == COST_SOURCE_API:
         recompute_points(record, budget)
@@ -258,7 +260,7 @@ def main(argv=None):
               "unverified (CSV costs stand)" % e)
         return 0
 
-    verified = fallback = mismatched = untagged = 0
+    verified = fallback = mismatched = 0
     for path, record in records:
         try:
             changed = enrich_record(
@@ -276,14 +278,12 @@ def main(argv=None):
             fallback += 1
         if record.get("tag_email_mismatch"):
             mismatched += 1
-        if record.get("forgot_tag"):
-            untagged += 1
         with open(path, "w") as f:
             json.dump(record, f, indent=2)
 
     print("enriched %d records: %d api-verified, %d fallback, "
-          "%d email mismatches, %d missing attendee tags"
-          % (len(records), verified, fallback, mismatched, untagged))
+          "%d identity mismatches" % (len(records), verified, fallback,
+                                      mismatched))
     return 0
 
 

@@ -1,8 +1,10 @@
 """Tests for scripts/enrich_costs.py (email-mapped API cost stamping).
 
-Semantics: tag-scoped API spend decides the cost; the email join verifies
-identity (email_verified / tag_email_mismatch); records without tag spend
-fall back to CSV with hint flags (forgot_tag / email_not_in_kimchi).
+Semantics: participants are fresh Kimchi accounts, so an owner's TOTAL spend
+in the window is their workshop spend — cost comes from the email -> owner
+join (fetched once, org-wide). The attendee tag provides the identity
+cross-check (tag owner vs email owner) and a cost fallback when no email
+can be joined.
 """
 import json
 import os
@@ -17,20 +19,19 @@ from enrich_costs import (  # noqa: E402
     enrich_record,
     load_records,
     main,
-    mask_email,
     normalize_email,
     recompute_points,
 )
 
 ROSTER = {
     "email_to_id": {"alice@example.com": "uid-alice"},
-    "id_to_email": {"uid-alice": "alice@example.com",
-                    "uid-someone": "someone.else@cast.ai"},
+    "id_to_email": {"uid-alice": "alice@example.com"},
 }
-ORG_SPEND = {"uid-alice": {"cost_usd": 12.0, "requests": 100}}
+ORG_SPEND = {"uid-alice": {"cost_usd": 12.3456, "requests": 300}}
 TAG_USAGE = {"cost_usd": 0.50, "requests": 42,
              "models_used": ["glm-x"], "rows": 1}
-TAG_OWNERS = {"uid-alice": {"cost_usd": 0.50, "requests": 42}}
+TAG_OWNERS_SAME = {"uid-alice": {"cost_usd": 0.50, "requests": 42}}
+TAG_OWNERS_OTHER = {"uid-someone": {"cost_usd": 0.50, "requests": 42}}
 NOW = "2026-11-06T12:00:00+00:00"
 
 
@@ -52,15 +53,15 @@ def base_record(**over):
     return record
 
 
-def enrich(record, verify=True, tag_usage=TAG_USAGE, tag_owners=TAG_OWNERS,
-           roster=ROSTER, org_spend=ORG_SPEND, api_key="k"):
-    # org_spend (the forgot-tag hint lookup) is passed into enrich_record
-    # directly; only the per-record tag queries go through the module
-    # functions mocked here.
-    with mock.patch("enrich_costs.fetch_tag_usage",
-                    return_value=tag_usage), \
-         mock.patch("enrich_costs.fetch_owner_costs",
-                    return_value=tag_owners):
+def enrich(record, verify=True, tag_owners=TAG_OWNERS_SAME,
+           tag_usage=TAG_USAGE, roster=ROSTER, org_spend=ORG_SPEND,
+           api_key="k"):
+    """org_spend is passed straight in (fetched once per run); the per-record
+    tag queries go through the module functions mocked here."""
+    with mock.patch("enrich_costs.fetch_owner_costs",
+                    return_value=tag_owners), \
+         mock.patch("enrich_costs.fetch_tag_usage",
+                    return_value=tag_usage):
         changed = enrich_record(record, roster, org_spend, NOW, 2.0,
                                 verify, api_key, "org", None, "start")
     return changed
@@ -85,88 +86,88 @@ class FormulaTest(unittest.TestCase):
         self.assertEqual(record["points"], 89.22)
 
 
-class MaskTest(unittest.TestCase):
-    def test_mask_email(self):
-        self.assertEqual(mask_email("matas@cast.ai"), "mat***@cast.ai")
-        self.assertEqual(mask_email(""), "")
-        self.assertEqual(mask_email("no-at-sign"), "")
-
-
 class EnrichRecordTest(unittest.TestCase):
-    def test_tag_spend_decides_cost_and_email_verifies(self):
+    def test_email_join_decides_cost_from_owner_total(self):
         record = base_record()
         self.assertTrue(enrich(record))
-        self.assertEqual(record["cost_usd"], 0.5)         # API, not CSV
-        self.assertEqual(record["cost_csv_usd"], 1.11)    # audit trail
-        self.assertEqual(record["requests"], 42)
-        self.assertEqual(record["models_used"], ["glm-x"])
+        self.assertEqual(record["cost_usd"], 12.3456)   # owner total
+        self.assertEqual(record["cost_csv_usd"], 1.11)  # audit trail
+        self.assertEqual(record["requests"], 300)
         self.assertEqual(record["cost_source"], "kimchi_api")
         self.assertTrue(record["usage_verified"])
-        self.assertTrue(record["email_verified"])
-        self.assertFalse(record["tag_email_mismatch"])  # explicit, not absent
-        # points recomputed with the API cost: 10 - 5*(0.5/2) = 8.75
-        self.assertEqual(record["score_breakdown"]["cost_efficiency"], 8.75)
-        # 27+16+6+8+10+8+7+0+8.75
-        self.assertEqual(record["points"], 90.75)
+        self.assertEqual(record["api_owner_id"], "uid-alice")
+        # points recomputed: 10 - 5*(12.3456/2) -> capped at -10
+        self.assertEqual(record["score_breakdown"]["cost_efficiency"], -10)
+        self.assertEqual(record["points"], 72.0)
 
-    def test_email_mismatch_flagged_but_cost_still_verified(self):
-        record = base_record(email="claimed@somewhere.else")
-        self.assertTrue(enrich(record))
-        self.assertEqual(record["cost_usd"], 0.5)
+    def test_matching_tag_owner_is_not_flagged(self):
+        record = base_record()
+        self.assertTrue(enrich(record, tag_owners=TAG_OWNERS_SAME))
+        self.assertEqual(record["tag_owner_id"], "uid-alice")
+        self.assertFalse(record["tag_email_mismatch"])
+
+    def test_identity_mismatch_flagged_but_cost_still_verified(self):
+        record = base_record()
+        self.assertTrue(enrich(record, tag_owners=TAG_OWNERS_OTHER))
+        self.assertEqual(record["cost_usd"], 12.3456)  # email join wins
         self.assertTrue(record["usage_verified"])
-        self.assertFalse(record["email_verified"])
         self.assertTrue(record["tag_email_mismatch"])
-        self.assertEqual(record["api_email_masked"], "ali***@example.com")
+        self.assertEqual(record["tag_owner_id"], "uid-someone")
 
-    def test_no_verify_skips_identity_flags(self):
+    def test_no_verify_skips_identity_check(self):
         record = base_record()
         self.assertTrue(enrich(record, verify=False))
         self.assertTrue(record["usage_verified"])
-        self.assertNotIn("email_verified", record)
-        self.assertNotIn("api_owner_id", record)
+        self.assertNotIn("tag_owner_id", record)
+        self.assertNotIn("tag_email_mismatch", record)
 
-    def test_no_tag_spend_falls_back_to_csv(self):
-        empty = {"cost_usd": 0.0, "requests": 0, "models_used": [], "rows": 0}
-        record = base_record()
-        self.assertTrue(enrich(record, tag_usage=empty, tag_owners={}))
+    def test_unknown_email_with_no_tag_spend_falls_back_to_csv(self):
+        empty_tag = {"cost_usd": 0.0, "requests": 0, "models_used": [],
+                     "rows": 0}
+        record = base_record(email="nobody@nowhere.test", attendee="bob")
+        self.assertTrue(enrich(record, tag_owners={}, tag_usage=empty_tag))
         self.assertEqual(record["cost_usd"], 1.11)
         self.assertFalse(record["usage_verified"])
         self.assertEqual(record["cost_source"], "csv")
         # breakdown untouched: no points recompute without an API match
         self.assertEqual(record["score_breakdown"]["cost_efficiency"], 2.22)
         self.assertEqual(record["points"], 84.22)
-
-    def test_forgot_tag_hint_when_email_owner_spent(self):
-        empty = {"cost_usd": 0.0, "requests": 0, "models_used": [], "rows": 0}
-        record = base_record()
-        self.assertTrue(enrich(record, tag_usage=empty, tag_owners={}))
-        self.assertTrue(record["forgot_tag"])
-
-    def test_email_not_in_kimchi_hint(self):
-        empty = {"cost_usd": 0.0, "requests": 0, "models_used": [], "rows": 0}
-        record = base_record(email="ghost@nowhere.test", attendee="bob")
-        self.assertTrue(enrich(record, tag_usage=empty, tag_owners={}))
         self.assertTrue(record["email_not_in_kimchi"])
-        self.assertNotIn("forgot_tag", record)
+
+    def test_no_email_but_tagged_spend_still_gets_api_cost(self):
+        record = base_record(email=None)
+        self.assertTrue(enrich(record, tag_owners={}))
+        self.assertEqual(record["cost_usd"], 0.5)  # tag-scoped fallback
+        self.assertEqual(record["cost_source_detail"], "attendee_tag")
+        self.assertTrue(record["usage_verified"])
+
+    def test_email_in_roster_but_zero_spend_falls_back(self):
+        empty_tag = {"cost_usd": 0.0, "requests": 0, "models_used": [],
+                     "rows": 0}
+        record = base_record()
+        self.assertTrue(enrich(record, org_spend={}, tag_usage=empty_tag))
+        self.assertFalse(record["usage_verified"])
+        self.assertEqual(record["cost_source"], "csv")
+        self.assertNotIn("email_not_in_kimchi", record)  # known, just idle
 
     def test_missing_attendee_and_email_is_tolerated(self):
         record = base_record(attendee=None, email=None)
-        empty = {"cost_usd": 0.0, "requests": 0, "models_used": [], "rows": 0}
-        self.assertTrue(enrich(record, tag_usage=empty, tag_owners={}))
+        empty_tag = {"cost_usd": 0.0, "requests": 0, "models_used": [],
+                     "rows": 0}
+        self.assertTrue(enrich(record, tag_owners={}, tag_usage=empty_tag))
         self.assertFalse(record["usage_verified"])
 
-    def test_api_failure_on_tag_query_degrades(self):
+    def test_api_failure_on_tag_check_degrades_gracefully(self):
         from kimchi_usage import KimchiUsageError
         record = base_record()
-        with mock.patch("enrich_costs.fetch_tag_usage",
-                        side_effect=KimchiUsageError("boom")), \
-             mock.patch("enrich_costs.fetch_owner_costs",
-                        return_value={}):
+        with mock.patch("enrich_costs.fetch_owner_costs",
+                        side_effect=KimchiUsageError("boom")):
             changed = enrich_record(record, ROSTER, ORG_SPEND, NOW, 2.0,
                                     True, "k", "org", None, "start")
         self.assertTrue(changed)
-        self.assertFalse(record["usage_verified"])
-        self.assertEqual(record["cost_source"], "csv")
+        # cost still verified via the email join; only the check failed
+        self.assertTrue(record["usage_verified"])
+        self.assertEqual(record["cost_usd"], 12.3456)
 
 
 class MainTest(unittest.TestCase):
@@ -179,29 +180,30 @@ class MainTest(unittest.TestCase):
                 with open(os.path.join(tmp, name), "w") as f:
                     json.dump(rec, f)
 
-            empty = {"cost_usd": 0.0, "requests": 0, "models_used": [],
-                     "rows": 0}
+            empty_tag = {"cost_usd": 0.0, "requests": 0, "models_used": [],
+                         "rows": 0}
             with mock.patch("enrich_costs.resolve_api_key",
                             return_value="k"), \
                  mock.patch("enrich_costs.fetch_org_users",
                             return_value=ROSTER), \
                  mock.patch("enrich_costs.fetch_owner_costs",
-                            return_value=ORG_SPEND), \
+                            side_effect=lambda *a, **kw: (
+                                TAG_OWNERS_SAME if kw.get("tags")
+                                else ORG_SPEND)), \
                  mock.patch("enrich_costs.fetch_tag_usage",
                             side_effect=lambda k, o, tag, s, e, b=None: (
-                                TAG_USAGE if "alice" in tag else empty)):
+                                TAG_USAGE if "alice" in tag else empty_tag)):
                 rc = main(["--records", tmp])
             self.assertEqual(rc, 0)
 
             rows = {os.path.basename(p): r for p, r in load_records(tmp)}
             alice = rows["alice.json"]
-            self.assertEqual(alice["cost_usd"], 0.5)
+            self.assertEqual(alice["cost_usd"], 12.3456)
             self.assertTrue(alice["usage_verified"])
-            self.assertTrue(alice["email_verified"])
+            self.assertFalse(alice["tag_email_mismatch"])
             bob_r = rows["bob.json"]
             self.assertEqual(bob_r["cost_usd"], 0.75)  # untouched fallback
             self.assertTrue(bob_r["email_not_in_kimchi"])
-            self.assertNotIn("forgot_tag", bob_r)
 
     def test_missing_records_dir_is_an_error(self):
         with tempfile.TemporaryDirectory() as tmp:
