@@ -34,9 +34,10 @@ jobs:
         with:
           python-version: "3.12"
 
-      # Only install pytest - never the PR's requirements.txt. The tests
-      # only need Python's stdlib + pytest to import and exercise the app.
-      - run: pip install pytest
+      # Install test deps directly - never the PR's requirements.txt, whose
+      # setup could execute untrusted PR code. The visible suite imports the
+      # app (flask), and the hidden suite uses requests.
+      - run: pip install pytest flask requests
 
       # Visible suite (the score gate)
       - name: Score the submission (visible suite)
