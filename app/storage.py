@@ -28,14 +28,13 @@ class TaskStore:
         return datetime.now(timezone.utc)
 
     def gc_stale_tasks(self):
-        """Remove tasks that have been open too long (over STALE_DAYS days).
+        """Remove open tasks whose LAST ACTIVITY is older than STALE_DAYS.
 
-        BUG: recency is computed against (created_at, updated_at) - a task
-        created 10 days ago that the user keeps updating stays forever;
-        a task created yesterday that was updated once stays too. The
-        intended policy: age since LAST ACTIVITY (updated_at or
-        completed_at, whichever exists). Fix so an actively-updated task
-        survives and a never-touched old task is reaped.
+        Last activity is the LATEST of created_at, updated_at and
+        completed_at: a recent creation counts as activity even when a
+        sync brought a stale updated_at along, and an actively-updated
+        task survives regardless of its creation date. Tasks that are
+        not open are never reaped, regardless of age.
         """
         with self._lock:
             data = self._read()
@@ -45,17 +44,12 @@ class TaskStore:
                 if t.get("status") != "open":
                     kept.append(t)
                     continue
-                last_activity = None
-                for field in ("updated_at", "completed_at"):
-                    if t.get(field):
-                        parsed = _parse(t[field])
-                        last_activity = (
-                            parsed
-                            if last_activity is None
-                            else max(last_activity, parsed)
-                        )
-                if last_activity is None:
-                    last_activity = _parse(t.get("created_at"))
+                stamps = [
+                    _parse(t[field])
+                    for field in ("created_at", "updated_at", "completed_at")
+                    if t.get(field)
+                ]
+                last_activity = max(stamps) if stamps else _EARLIEST
                 if last_activity >= cutoff:
                     kept.append(t)
             data["tasks"] = kept

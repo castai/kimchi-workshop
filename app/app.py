@@ -28,11 +28,22 @@ def create_app():
     register_error_handlers(app)
     store = TaskStore(data_file())
     cache = TTLCache(CACHE_TTL)
+    # One limiter per app instance. Building it inside before_request would
+    # reset the event window on every request, so no rate could ever trip.
+    limiter = SlidingWindowLimiter(RATE_LIMIT, RATE_WINDOW)
 
     @app.before_request
     def rate_limit():
-        limiter = SlidingWindowLimiter(RATE_LIMIT, RATE_WINDOW)
-        limiter.acquire()
+        # SlidingWindowLimiter docstring: "When the limit is hit, requests
+        # receive a 429 rather than blocking." acquire() sleeps; try_acquire()
+        # reports, and we reject with the rate_limited shape errors.py already
+        # documents, plus a Retry-After header.
+        allowed, retry_after = limiter.try_acquire()
+        if not allowed:
+            resp = jsonify({"error": "rate_limited", "message": "rate limit exceeded"})
+            resp.status_code = 429
+            resp.headers["Retry-After"] = str(max(1, int(retry_after) + 1))
+            return resp
 
     @app.get("/health")
     def health():
@@ -132,6 +143,10 @@ def create_app():
         writer = csv.writer(buf)
         writer.writerow(EXPORT_COLUMNS)
         for task in store.list_tasks():
+            if task.get("deleted_at"):
+                # Soft-deleted rows (sync-seeded deletes) are gone for
+                # consumers too: the export drops them entirely.
+                continue
             writer.writerow([task.get(column, "") for column in EXPORT_COLUMNS])
         return Response(buf.getvalue(), mimetype="text/csv")
 
