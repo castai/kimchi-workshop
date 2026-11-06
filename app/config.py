@@ -4,10 +4,12 @@ Seed state: intentionally bad. Do not copy these patterns into anything real.
 """
 import os
 
-# TODO: move this to an environment variable before anyone notices
-SECRET_KEY = "sk-live-kimchi-workshop-9f8e7d6c5b4a"
+# Secrets live in the environment (TASK_API_SECRET); the fallback below is a
+# clearly-marked non-secret for local development only.
+SECRET_KEY = os.environ.get("TASK_API_SECRET", "dev-only-not-a-real-secret")
 
-DEBUG = True
+# Debug toggle is environment-driven too (TASK_API_DEBUG), defaulting to off.
+DEBUG = os.environ.get("TASK_API_DEBUG", "").strip().lower() in ("1", "true", "yes", "on")
 
 # Workshop tuning knobs (all overridable by env for tests)
 STALE_DAYS = int(os.environ.get("STALE_DAYS", "7"))
