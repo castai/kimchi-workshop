@@ -48,7 +48,25 @@ jobs:
           path: download/
           pr: ${{ github.event.pull_request.number }}
           allow_forks: true
-          if-no-files-found: ignore
+          # dawidd6's input is if_no_artifact_found (if-no-files-found is an
+          # upload-artifact input and is silently ignored here). Tolerate a
+          # missing production.yml artifact and let the fallback below fill
+          # the gap: when the scoring workflow itself posts the production
+          # report, the artifact lives under score-pr.yml instead.
+          if_no_artifact_found: warn
+        continue-on-error: true
+
+      - name: Download production score (score workflow fallback)
+        if: ${{ !hashFiles('download/prod_log.md') }}
+        uses: dawidd6/action-download-artifact@v6
+        with:
+          workflow: score-pr.yml
+          name: submission-prod-score
+          path: download/
+          pr: ${{ github.event.pull_request.number }}
+          allow_forks: true
+          if_no_artifact_found: warn
+        continue-on-error: true
 
       - name: Record the accepted submission
         id: record
