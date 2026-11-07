@@ -11,10 +11,10 @@ The full context: [`PRODUCTION-INCIDENT.md`](PRODUCTION-INCIDENT.md) —
 what broke, what the service is supposed to do, and why the previous
 fix attempt failed. Read it before you touch any code.
 
-Then, your entry ticket:
+Then, your entry ticket - **fork first** (Fork button, top right), then clone *your* fork:
 
 ```bash
-git clone https://github.com/castai/kimchi-workshop.git
+git clone https://github.com/<your-handle>/kimchi-workshop.git
 cd kimchi-workshop
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
