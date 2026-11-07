@@ -627,7 +627,7 @@ function renderBody(body) {
 
 function actionButtons(m) {
   const btns = [];
-  if (m.id === "incident-brief") {
+  if (m.id === "start-here") {
     btns.push(`<a class="btn primary" href="${REPO_URL}" target="_blank" rel="noopener">🗂️ Open the repo</a>`);
     btns.push(`<a class="btn" href="${REPO_URL}/blob/challenge/PRODUCTION-INCIDENT.md" target="_blank" rel="noopener">📄 Full incident report</a>`);
   }
@@ -652,8 +652,8 @@ function actionButtons(m) {
   return out.join("");
 }
 
-// ordered briefing ids: incident -> spec -> submit -> agent-craft -> (then fork)
-const FLOW_ORDER = ["incident-brief", "spec-docstrings", "submission-lifecycle", "kimchi-cadence"];
+// ordered briefing ids: start-here -> submission (then fork)
+const FLOW_ORDER = ["start-here", "submission-lifecycle"];
 function nextStepFor(m) {
   if (m.personal || m.category === "production" || m.category === "score") {
     if (m.category === "score") return null; // finished state
@@ -663,7 +663,7 @@ function nextStepFor(m) {
   if (i === -1) return null;
   if (i < FLOW_ORDER.length - 1) {
     const n = MAIL.find(x => x.id === FLOW_ORDER[i + 1]);
-    return n ? `read <a href="javascript:void(0)" onclick="openMail('${n.id}')">${esc(n.subject)}</a>${i + 1 < FLOW_ORDER.length - 1 ? "" : " (last one before you start)"}` : null;
+    return n ? `read <a href="javascript:void(0)" onclick="openMail('${n.id}')">${esc(n.subject)}</a>${i + 1 < FLOW_ORDER.length - 1 ? "" : " (the only other one)"}` : null;
   }
   // last briefing: point at the fork
   return `set your GitHub handle top-right if you haven't, then <a href="${REPO_URL}/fork" target="_blank" rel="noopener">fork the repo</a> and get to work.`;
