@@ -45,6 +45,11 @@ def parse_body(body):
 
     Returns a dict of found fields (values as strings) plus a list of
     missing required fields.
+
+    cost_usd is optional (see REQUIRED_FIELDS): an unparseable value is
+    dropped with a warning, NOT treated as a missing required field, so
+    it can never block the submission. Spend is decided by the Kimchi
+    API at leaderboard time regardless.
     """
     def grab(key):
         m = re.search(r"(?im)^\s*%s\s*:\s*(.*?)\s*$" % re.escape(key),
@@ -66,9 +71,12 @@ def parse_body(body):
         try:
             cost_usd = float(raw_cost.strip().lstrip("$"))
         except (ValueError, AttributeError):
+            # Optional field with a bad value: ignore it with a warning.
+            # Blocking here would contradict cost_usd being non-required.
+            print("::warning::ignoring unparseable optional cost_usd: "
+                  "%r (cost is decided by the Kimchi API at leaderboard "
+                  "time)" % raw_cost)
             cost_usd = None
-            if "cost_usd" not in missing:
-                missing.append("cost_usd")
 
     found["cost_usd"] = cost_usd
     found["event"] = found.get("event") or "default"
