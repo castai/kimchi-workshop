@@ -25,17 +25,14 @@ class TaskStore:
             json.dump(data, f, indent=2)
 
     def _now(self):
-        return datetime.utcnow()
+        return datetime.now(timezone.utc)
 
     def gc_stale_tasks(self):
         """Remove tasks that have been open too long (over STALE_DAYS days).
 
-        BUG: recency is computed against (created_at, updated_at) - a task
-        created 10 days ago that the user keeps updating stays forever;
-        a task created yesterday that was updated once stays too. The
-        intended policy: age since LAST ACTIVITY (updated_at or
-        completed_at, whichever exists). Fix so an actively-updated task
-        survives and a never-touched old task is reaped.
+        A task is reaped when its LAST ACTIVITY is older than the cutoff.
+        Last activity is ``updated_at`` if present, else ``created_at``.
+        Non-open tasks are exempt — only stale *open* work is reaped.
         """
         with self._lock:
             data = self._read()
@@ -45,12 +42,11 @@ class TaskStore:
                 if t["status"] != "open":
                     kept.append(t)
                     continue
-                if t.get("updated_at"):
-                    if _parse(t["updated_at"]) >= cutoff:
-                        kept.append(t)
-                    continue
-                if _parse(t["created_at"]) > cutoff:
-                    kept.append(t)
+                last_activity_str = t.get("updated_at") or t.get("created_at") or ""
+                last_activity = _parse(last_activity_str)
+                if last_activity < cutoff:
+                    continue  # reaped: last activity predates the cutoff
+                kept.append(t)
             data["tasks"] = kept
             self._write(data)
             return len(kept)
@@ -58,9 +54,9 @@ class TaskStore:
     def merge_tasks(self, incoming):
         """Merge tasks from a sync payload (id, title, priority, status).
 
-        BUG: blindly overwrites the local task when incoming is older -
-        last-writer-wins by incoming. The intended policy: keep whichever
-        task has the later updated_at; on equal timestamps, keep local.
+        Keep whichever task has the later ``updated_at``. On equal
+        timestamps, keep the local copy — incoming must be strictly newer
+        to overwrite.
         """
         with self._lock:
             data = self._read()
@@ -69,7 +65,7 @@ class TaskStore:
                 tid = inc["id"]
                 if tid in by_id:
                     local = by_id[tid]
-                    if _parse(inc.get("updated_at", "")) >= _parse(local.get("updated_at", "")):
+                    if _parse(inc.get("updated_at", "")) > _parse(local.get("updated_at", "")):
                         local.update(inc)
                 else:
                     by_id[tid] = dict(inc)
@@ -143,8 +139,21 @@ class TaskStore:
 
 
 def _iso(dt):
+    # Normalize naive datetimes to UTC before serializing so callers
+    # always see a comparable ISO-8601 string with timezone offset.
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
     return dt.isoformat()
 
 
 def _parse(s):
-    return datetime.fromisoformat(s) if s else datetime.min
+    """Parse an ISO-8601 timestamp. Empty/missing input is treated as
+    the minimum representable datetime (UTC, year 1) so it sorts before
+    any real timestamp.
+    """
+    if not s:
+        return datetime.min.replace(tzinfo=timezone.utc)
+    dt = datetime.fromisoformat(s)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt
