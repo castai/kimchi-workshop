@@ -9,8 +9,21 @@
       },
       "category": "welcome",
       "subject": "Welcome aboard, Vilius",
-      "body": "Settle in.\n\nThe task-api incident sits on the table. Sam's first briefing on the left explains the rollback and where your runtime sits now \u2014 start there.\n\nYour start time just got logged for event KOL-001 (issue #77). Credit allocation goes to the facilitator's queue; once credits post, the agent is live on your fork.\n\nRead the briefings in order, then fork and ship a PR. We'll keep score.",
+      "body": "Settle in.\n\nThe task-api incident sits on the table. Sam's first briefing on the left explains the rollback and where your runtime sits now — start there.\n\nYour start time just got logged for event KOL-001 (issue #77). Credit allocation goes to the facilitator's queue; once credits post, the agent is live on your fork.\n\nRead the briefings in order, then fork and ship a PR. We'll keep score.",
       "timestamp": "2026-11-09 02:14 UTC"
+    },
+    {
+      "id": "prod-log-pr-78-1b20cf9",
+      "from": {
+        "name": "Ingrid Sorensen",
+        "role": "SRE on-call",
+        "bg": "#145a32"
+      },
+      "subject": "Re: deployment - production is unhappy again",
+      "timestamp": "2026-11-09 05:01 UTC",
+      "category": "production",
+      "body": "The production run did not produce a report. The facilitator has been notified.",
+      "pr_url": "https://github.com/castai/kimchi-workshop/pull/78"
     }
   ]
 }
