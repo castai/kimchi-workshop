@@ -48,7 +48,9 @@ class TaskStore:
             cutoff = self._now() - timedelta(days=self.stale_days)
             kept = []
             for t in data["tasks"]:
-                if t["status"] != "open":
+                if t.get("status") != "open":
+                    # Unknown/missing status: never reap what we cannot
+                    # classify.
                     kept.append(t)
                     continue
                 last_activity = None

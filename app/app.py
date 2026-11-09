@@ -1,5 +1,7 @@
 """Ferment Board API. Small Flask app used for the workshop challenges."""
-from flask import Flask, abort, jsonify, request
+import math
+
+from flask import Flask, abort, jsonify, make_response, request
 
 from app.cache import TTLCache
 from app.config import (
@@ -35,12 +37,24 @@ def create_app():
 
     @app.before_request
     def enforce_rate_limit():
+        if request.path == "/health":
+            # Liveness/readiness probes must never consume the API budget:
+            # a throttled health check reads as an unhealthy pod.
+            return None
         allowed, retry_after = limiter.try_acquire()
         if not allowed:
-            abort(
+            retry_seconds = max(1, math.ceil(retry_after))
+            resp = make_response(
+                jsonify(
+                    {
+                        "error": "rate_limited",
+                        "message": f"rate limit exceeded; retry after {retry_seconds}s",
+                    }
+                ),
                 429,
-                description=f"rate limit exceeded; retry after {retry_after:.1f}s",
             )
+            resp.headers["Retry-After"] = str(retry_seconds)
+            return resp
 
     @app.get("/health")
     def health():
@@ -103,9 +117,12 @@ def create_app():
         payload = request.get_json(silent=True) or {}
         incoming = payload.get("tasks", [])
         if not isinstance(incoming, list) or not all(
-            isinstance(t, dict) for t in incoming
+            isinstance(t, dict)
+            and isinstance(t.get("id"), int)
+            and not isinstance(t.get("id"), bool)
+            for t in incoming
         ):
-            abort(400, description="tasks must be a list of task objects")
+            abort(400, description="tasks must be a list of task objects with integer ids")
         tasks = store.merge_tasks(incoming)
         invalidate_list_cache()
         return jsonify({"synced": len(tasks)})

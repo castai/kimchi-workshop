@@ -10,9 +10,6 @@ import os
 # environment. It is not a credential and must never look like one.
 DEV_FALLBACK_SECRET_KEY = "dev-insecure-change-me"
 
-# Read once at import for consumers that inspect the module directly.
-SECRET_KEY = os.environ.get("SECRET_KEY") or DEV_FALLBACK_SECRET_KEY
-
 # Debug mode is a deployment decision (env-driven), never a hardcoded flag.
 DEBUG = os.environ.get("FLASK_DEBUG", "").lower() in {"1", "true", "yes"}
 
@@ -20,6 +17,11 @@ DEBUG = os.environ.get("FLASK_DEBUG", "").lower() in {"1", "true", "yes"}
 def secret_key():
     """Secret key, read at call time so env changes are honored."""
     return os.environ.get("SECRET_KEY") or DEV_FALLBACK_SECRET_KEY
+
+
+# Single source of truth: the module constant reuses secret_key() so the two
+# can never drift. Consumers that inspect the module directly still work.
+SECRET_KEY = secret_key()
 
 
 def data_file():
