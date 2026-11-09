@@ -47,6 +47,18 @@
       "joined_at": "2026-11-06T07:29:53.261219+00:00",
       "start_time": "2026-11-06T07:29:53.261232+00:00",
       "credit_status": "pending"
+    },
+    {
+      "name": "Vilius",
+      "designation": "Tester",
+      "org": "Kimchi",
+      "email": "vilius.kazlauskas@cast.ai",
+      "github_handle": "vilkaz-cast",
+      "event_code": "KOL-001",
+      "issue_number": 77,
+      "joined_at": "2026-11-09T02:14:36.755002+00:00",
+      "start_time": "2026-11-09T02:14:36.755015+00:00",
+      "credit_status": "pending"
     }
   ]
 }
