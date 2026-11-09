@@ -24,6 +24,19 @@
       "category": "production",
       "body": "Saw prod drop to 0/26—hidden tests are the blocker, and the visible suite is masking it. Fix the docstrings first; the spec is the honest word for what those stages expect. Push again and CI reruns clean. Ingrid\n\nPush it when it is green, CI reruns.\n\n- Ingrid",
       "pr_url": "https://github.com/castai/kimchi-workshop/pull/78"
+    },
+    {
+      "id": "prod-log-pr-78-c4ec50b",
+      "from": {
+        "name": "Marcus Webb",
+        "role": "SRE on-call",
+        "bg": "#1a5276"
+      },
+      "subject": "Re: deployment - production is unhappy again",
+      "timestamp": "2026-11-09 05:10 UTC",
+      "category": "production",
+      "body": "Saw your PR hit prod and the hidden suite ate it alive—zero for twenty-six, with the stage labels `auth_flow` and `cache_sync` blocking everything else. Fix the docstrings first; the spec is the honest word, not the code comments you wrote. Push again and CI reruns, but make it count this time. — Marcus Webb\n\nPush it when it is green, CI reruns.\n\n- Marcus",
+      "pr_url": "https://github.com/castai/kimchi-workshop/pull/78"
     }
   ]
 }
