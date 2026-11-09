@@ -83,6 +83,18 @@
       "joined_at": "2026-11-09T20:15:56.472761+00:00",
       "start_time": "2026-11-09T20:15:56.472773+00:00",
       "credit_status": "pending"
+    },
+    {
+      "name": "matt slater",
+      "designation": "platform engineer",
+      "org": "jpmchase",
+      "email": "matt.a.slater@gmail.com",
+      "github_handle": "matt-slater",
+      "event_code": "SLC-001",
+      "issue_number": 105,
+      "joined_at": "2026-11-09T20:16:13.833328+00:00",
+      "start_time": "2026-11-09T20:16:13.833341+00:00",
+      "credit_status": "pending"
     }
   ]
 }
