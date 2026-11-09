@@ -155,6 +155,18 @@
       "joined_at": "2026-11-09T20:18:55.129591+00:00",
       "start_time": "2026-11-09T20:18:55.129605+00:00",
       "credit_status": "pending"
+    },
+    {
+      "name": "Manish Kaujalgi",
+      "designation": "Senior Platform",
+      "org": "TAG",
+      "email": "mmkloans@gmail.com",
+      "github_handle": "mmkloans",
+      "event_code": "SLC-001",
+      "issue_number": 113,
+      "joined_at": "2026-11-09T20:19:07.606185+00:00",
+      "start_time": "2026-11-09T20:19:07.606199+00:00",
+      "credit_status": "pending"
     }
   ]
 }
