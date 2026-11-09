@@ -386,6 +386,23 @@ def test_merge_new_task_with_garbage_timestamp_still_lands(tmp_path):
     assert store.get_task(7)["title"] == "garbage-ts"
 
 
+def test_next_id_advances_past_merged_external_ids(tmp_path):
+    """After syncing an external high id, creates must never collide."""
+    from app.storage import TaskStore
+
+    store = TaskStore(str(tmp_path / "tasks.json"))
+    store.merge_tasks([{
+        "id": 100,
+        "title": "from another replica",
+        "priority": 1,
+        "status": "open",
+        "updated_at": "2026-01-02T00:00:00",
+    }])
+    created = store.create_task("local after sync")
+    assert created["id"] > 100  # RED today: next_id untouched by merge
+    assert store.get_task(created["id"])["title"] == "local after sync"
+
+
 # --- error-contract consistency ------------------------------------------------
 
 

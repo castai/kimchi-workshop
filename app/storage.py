@@ -96,6 +96,10 @@ class TaskStore:
                 else:
                     by_id[tid] = dict(inc)
             data["tasks"] = list(by_id.values())
+            # Keep ids collision-free: external sync ids can exceed next_id,
+            # so creations must never reuse an id already in the store.
+            highest = max((t["id"] for t in data["tasks"]), default=0)
+            data["next_id"] = max(data["next_id"], highest + 1)
             self._write(data)
             return data["tasks"]
 
