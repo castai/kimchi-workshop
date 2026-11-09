@@ -301,6 +301,18 @@
       "joined_at": "2026-11-09T20:32:59.902735+00:00",
       "start_time": "2026-11-09T20:32:59.902752+00:00",
       "credit_status": "pending"
+    },
+    {
+      "name": "Jared Robinson",
+      "designation": "Engineering manager",
+      "org": "Vivint",
+      "email": "robinson.jaredw@gmail.com",
+      "github_handle": "pscripter",
+      "event_code": "SLC-001",
+      "issue_number": 129,
+      "joined_at": "2026-11-09T20:35:13.740248+00:00",
+      "start_time": "2026-11-09T20:35:13.740259+00:00",
+      "credit_status": "pending"
     }
   ]
 }
