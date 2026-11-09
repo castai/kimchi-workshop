@@ -59,6 +59,18 @@
       "joined_at": "2026-11-09T20:15:22.253216+00:00",
       "start_time": "2026-11-09T20:15:22.253224+00:00",
       "credit_status": "pending"
+    },
+    {
+      "name": "Aditya",
+      "designation": "Lead SWE",
+      "org": "Royal Bank of Canada",
+      "email": "aditya.medepalli@gmail.com",
+      "github_handle": "aditya-hq1",
+      "event_code": "SLC-001",
+      "issue_number": 102,
+      "joined_at": "2026-11-09T20:15:30.971267+00:00",
+      "start_time": "2026-11-09T20:15:30.971277+00:00",
+      "credit_status": "pending"
     }
   ]
 }
