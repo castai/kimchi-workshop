@@ -47,6 +47,18 @@
       "joined_at": "2026-11-09T17:48:23.040994+00:00",
       "start_time": "2026-11-09T17:48:23.041002+00:00",
       "credit_status": "pending"
+    },
+    {
+      "name": "",
+      "designation": "EM",
+      "org": "Kimchi",
+      "email": "",
+      "github_handle": "linkas45",
+      "event_code": "KOL-001",
+      "issue_number": 88,
+      "joined_at": "2026-11-09T17:48:51.706072+00:00",
+      "start_time": "2026-11-09T17:48:51.706085+00:00",
+      "credit_status": "pending"
     }
   ]
 }
