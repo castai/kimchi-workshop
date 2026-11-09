@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-11-09T17:23:47.963334+00:00",
+  "generated_at": "2026-11-09T17:40:01.458928+00:00",
   "events": {
     "KOL-001": {
       "rows": [
@@ -56,60 +56,9 @@
           "cost_source": "csv",
           "email_not_in_kimchi": true,
           "rank": 1
-        },
-        {
-          "attendee": "linkas45",
-          "email": "",
-          "github": "linkas45",
-          "event": "KOL-001",
-          "pr": 73,
-          "pr_url": "https://github.com/castai/kimchi-workshop/pull/73",
-          "pr_title": "[submission] linkas45 - restore docstring-contract policies (API-verified costs)",
-          "status": "accepted",
-          "tests_passed": 9,
-          "tests_failed": 0,
-          "review_score": 0.0,
-          "cost_usd": 11.2011,
-          "cost_self_reported": false,
-          "requests": 657,
-          "models_used": [],
-          "points": 23.8,
-          "submitted_at": "2026-11-06T17:02:39.707309+00:00",
-          "scoring_config": {
-            "budget_usd": 2.0,
-            "production_total": 0,
-            "visible_total": 9,
-            "scoring_version": "v2"
-          },
-          "name": "",
-          "org": "Kimchi",
-          "designation": "EM",
-          "production_passed": 0,
-          "production_total": 0,
-          "commits": 3,
-          "accepted_at": "2026-11-06T17:32:30.134147+00:00",
-          "elapsed_seconds": 202042,
-          "elapsed_hours": 56.12,
-          "score_breakdown": {
-            "visible_tests": 27,
-            "production_tests": 0,
-            "models_used": 0,
-            "request_count": 10,
-            "cost_efficiency": -9.2,
-            "time_to_accept": -10,
-            "commit_discipline": 6,
-            "code_quality": 0,
-            "full_clear_bonus": 0
-          },
-          "cost_csv_usd": 0.0,
-          "cost_source": "kimchi_api",
-          "usage_verified": true,
-          "api_owner_id": "a131afbc-9e34-4ecc-8c78-fac86a48d109",
-          "api_usage_fetched_at": "2026-11-09T13:54:36.642862+00:00",
-          "rank": 2
         }
       ],
-      "count": 2
+      "count": 1
     }
   }
 }
