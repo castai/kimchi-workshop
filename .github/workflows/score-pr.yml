@@ -87,13 +87,11 @@ jobs:
           else
             # No hidden tests available, fabricate a passing log so the
             # downstream production.yml gate doesn't block on artifacts
-            # being absent.
-            mkdir -p /tmp
-            python3 - <<'EOF'
-            with open('prod_log.md', 'w') as f:
-                f.write('Production score: 0/26 (hidden tests not available)\n')
-                f.write('Visible suite ran; hidden stage data not yet wired up.\n')
-            EOF
+            # being absent. NOTE: printf, not a heredoc - bash needs the
+            # terminator at column 0 and YAML block-scalar indentation puts
+            # every line >= 2 spaces deep, which silently breaks <<EOF
+            # (parse-time syntax error, masked by continue-on-error).
+            printf 'Production score: 0/26 (hidden tests not available)\nVisible suite ran; hidden stage data not yet wired up.\n' > prod_log.md
           fi
           cat prod_log.md
 
