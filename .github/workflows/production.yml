@@ -60,26 +60,62 @@ jobs:
 
       # score.json is written by scripts/score_pr.py in the scoring run and
       # carries pr, pr_url, pr_title and github (the author's handle).
+      # SECURITY: score.json is produced in a run that executes PR code
+      # (score-pr.yml checks out the PR head and pytest loads PR conftest/
+      # modules), so a participant can overwrite the artifact's contents.
+      # These values are template-substituted into privileged shell/JS below
+      # (${{ steps.meta.outputs.* }}), so every value is validated against a
+      # strict allowlist BEFORE it reaches GITHUB_OUTPUT. Anything that fails
+      # validation marks the run as non-submission: all side-effecting steps
+      # gate on is_submission and treat the values as untrusted either way.
       - name: Read submission metadata from the score artifact
         id: meta
         run: |
           python3 - <<'EOF'
-          import json, os
-          if not os.path.exists('artifacts/score/score.json'):
-              print("::warning::score.json missing; treating run as non-submission")
-              d = {}
-              title = ''
+          import json, os, re
+
+          d = {}
+          title = ''
+          if os.path.exists('artifacts/score/score.json'):
+              try:
+                  with open('artifacts/score/score.json') as f:
+                      d = json.load(f)
+              except (ValueError, OSError) as e:
+                  print(f"::warning::score.json unreadable ({e}); treating run as non-submission")
+                  d = {}
+              title = str(d.get('pr_title', '') or '')
+
+          pr = d.get('pr')
+          sender = str(d.get('github', '') or '')
+          pr_url = str(d.get('pr_url', '') or '')
+
+          # GitHub login: 1-39 chars, alphanumeric/hyphen, no leading hyphen.
+          LOGIN = re.compile(r'[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})?')
+          PR_URL = re.compile(r'https://github\.com/castai/kimchi-workshop/pull/[0-9]+')
+
+          ok = (
+              title.startswith('[submission]')
+              and '\n' not in title and '\r' not in title
+              and type(pr) is int and pr > 0
+              and LOGIN.fullmatch(sender) is not None
+              and PR_URL.fullmatch(pr_url) is not None
+          )
+
+          if not ok:
+              print("::warning::score.json metadata missing or failed validation; "
+                    "no side effects will run")
+              pr_number = pr_title = sender = pr_url = ''
           else:
-              with open('artifacts/score/score.json') as f:
-                  d = json.load(f)
-              title = str(d.get('pr_title', ''))
+              pr_number, pr_title = str(pr), title
+
           with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
-              f.write(f"pr_number={d.get('pr', '')}\n")
-              f.write(f"pr_title={title}\n")
-              f.write(f"sender={d.get('github', '')}\n")
-              f.write(f"pr_url={d.get('pr_url', '')}\n")
-              f.write(f"is_submission={'true' if title.startswith('[submission]') else 'false'}\n")
+              f.write(f"pr_number={pr_number}\n")
+              f.write(f"pr_title={pr_title}\n")
+              f.write(f"sender={sender}\n")
+              f.write(f"pr_url={pr_url}\n")
+              f.write(f"is_submission={'true' if ok else 'false'}\n")
           print(f"PR title: {title}")
+          print(f"is_submission={ok}")
           EOF
 
       - name: Pick rotating SRE sender
@@ -215,9 +251,15 @@ jobs:
           cd site
           git config user.name "kimchi-workshop-bot"
           git config user.email "bot@users.noreply.github.com"
-          BODY_FILE="../artifacts/prod/prod_log.md"
+          # Prefer the persona-framed email; fall back to the raw log, then
+          # to a placeholder if the scoring run produced no report at all.
+          BODY_FILE="../prod_email_body.txt"
           if [ ! -s "$BODY_FILE" ]; then
-            printf 'The production run did not produce a report. The facilitator has been notified.\n' > "$BODY_FILE"
+            BODY_FILE="../artifacts/prod/prod_log.md"
+          fi
+          if [ ! -s "$BODY_FILE" ]; then
+            printf 'The production run did not produce a report. The facilitator has been notified.\n' > /tmp/no_report.txt
+            BODY_FILE=/tmp/no_report.txt
           fi
           test -f append_personal_mail.py
           SHORT_SHA=$(echo "${{ github.event.workflow_run.head_sha }}" | cut -c1-7)
