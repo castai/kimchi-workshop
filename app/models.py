@@ -23,3 +23,16 @@ def validate_priority(priority):
     if not 1 <= priority <= 5:
         raise ValueError("priority must be between 1 and 5")
     return priority
+
+
+def validate_title(title):
+    """Title is a non-empty string; surrounding whitespace is stripped.
+
+    Raises ValueError otherwise. Returns the stripped title.
+    """
+    if not isinstance(title, str):
+        raise ValueError("title must be a string")
+    stripped = title.strip()
+    if not stripped:
+        raise ValueError("title must not be empty")
+    return stripped

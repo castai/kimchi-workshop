@@ -53,3 +53,28 @@ def test_429_includes_retry_after_header(client):
     retry_after = resp.headers.get("Retry-After")
     assert retry_after is not None  # RED today: header missing
     assert int(retry_after) >= 1
+
+
+def test_try_acquire_is_thread_safe_under_contention():
+    """Exactly `limit` admissions under concurrent contention (no race)."""
+    import threading
+
+    from app.ratelimit import SlidingWindowLimiter
+
+    limiter = SlidingWindowLimiter(5, 60.0)
+    results = []
+    lock = threading.Lock()
+
+    def worker():
+        local = [limiter.try_acquire()[0] for _ in range(20)]
+        with lock:
+            results.extend(local)
+
+    threads = [threading.Thread(target=worker) for _ in range(8)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert len(results) == 160
+    assert results.count(True) == 5  # exactly the limit; no over-admission

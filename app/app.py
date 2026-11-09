@@ -4,7 +4,7 @@ from flask import Flask, abort, jsonify, request
 from app.cache import TTLCache
 from app.config import CACHE_TTL, RATE_LIMIT, RATE_WINDOW, data_file
 from app.errors import register_error_handlers
-from app.models import validate_priority
+from app.models import validate_priority, validate_title
 from app.ratelimit import SlidingWindowLimiter
 from app.storage import TaskStore
 
@@ -55,18 +55,13 @@ def create_app():
         payload = request.get_json(silent=True) or {}
         if not isinstance(payload, dict):
             abort(400)
-        title = payload.get("title")
-        if not isinstance(title, str):
-            abort(400)
-        title = title.strip()
-        if not title:
-            abort(400)
         try:
+            title = validate_title(payload.get("title"))
             priority = validate_priority(payload.get("priority", 1))
         except (ValueError, TypeError):
-            # Defense in depth: priority is raw client input. The validator
-            # itself raises ValueError; TypeError is caught in case its type
-            # guards ever change.
+            # Defense in depth: both fields are raw client input. The
+            # validators raise ValueError; TypeError is caught in case the
+            # validators' own type guards ever change.
             abort(400)
         task = store.create_task(title=title, priority=priority)
         bust_list_cache()

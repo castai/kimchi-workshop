@@ -18,10 +18,12 @@ this suite alongside it:
 """
 import json
 import os
+import subprocess
 import sys
 from datetime import datetime, timedelta
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, REPO_ROOT)
 
 import pytest
 
@@ -374,38 +376,65 @@ def test_sync_missing_tasks_key_syncs_nothing(client):
 
 
 # --- configuration contract: debug off by default, fail fast in production -----
-# These reload app.config with a controlled environment; they run last so the
-# reloads cannot disturb earlier tests (app.app holds its own config bindings).
+# Each case runs in a fresh interpreter (no module-reload state leaking into
+# other tests).
 
 
-def test_debug_defaults_off(monkeypatch):
-    import importlib
-
-    monkeypatch.delenv("FLASK_DEBUG", raising=False)
-    from app import config
-
-    importlib.reload(config)
-    assert config.DEBUG is False
-    importlib.reload(config)  # restore
+def _run_config_code(code):
+    return subprocess.run(
+        [sys.executable, "-c", code],
+        cwd=REPO_ROOT, capture_output=True, text=True,
+    )
 
 
-def test_debug_env_opt_in(monkeypatch):
-    import importlib
-
-    monkeypatch.setenv("FLASK_DEBUG", "1")
-    from app import config
-
-    importlib.reload(config)
-    assert config.DEBUG is True
-    importlib.reload(config)  # restore
+def test_debug_defaults_off():
+    out = _run_config_code(
+        "import os; os.environ.pop('FLASK_DEBUG', None); "
+        "from app import config; print(config.DEBUG)"
+    )
+    assert out.returncode == 0
+    assert out.stdout.strip() == "False"  # RED today: hardcoded True
 
 
-def test_production_env_requires_secret_key(monkeypatch):
-    import importlib
+def test_debug_env_opt_in():
+    out = _run_config_code(
+        "import os; os.environ['FLASK_DEBUG'] = '1'; "
+        "from app import config; print(config.DEBUG)"
+    )
+    assert out.returncode == 0
+    assert out.stdout.strip() == "True"
 
-    monkeypatch.setenv("ENV", "production")
-    monkeypatch.delenv("SECRET_KEY", raising=False)
-    from app import config
 
-    with pytest.raises(RuntimeError):
-        importlib.reload(config)
+def test_production_env_requires_secret_key():
+    out = _run_config_code(
+        "import os; os.environ['ENV'] = 'production'; "
+        "os.environ.pop('SECRET_KEY', None); import app.config"
+    )
+    assert out.returncode != 0  # RED today: silently boots with fallback key
+    assert "RuntimeError" in out.stderr
+    assert "SECRET_KEY" in out.stderr
+
+
+# --- model-layer validation (docstring: "Task model and validation rules") ------
+
+
+def test_validate_title_accepts_and_strips():
+    from app.models import validate_title
+
+    assert validate_title("  buy milk  ") == "buy milk"
+
+
+def test_validate_title_rejects_non_string():
+    from app.models import validate_title
+
+    with pytest.raises(ValueError):
+        validate_title(123)
+
+
+def test_validate_title_rejects_empty_and_whitespace():
+    from app.models import validate_title
+
+    with pytest.raises(ValueError):
+        validate_title("")
+    with pytest.raises(ValueError):
+        validate_title("   ")
