@@ -72,6 +72,21 @@ If a file is absent (fresh day, no joins yet) the section stays empty.
   `current_event.json`, records the registration here, sends a welcome
   email to that participant's `<handle>.json` inbox.
 
+## Participant email list (unlisted page)
+
+Need every participant's work email for a mail merge or a BCC? The site
+carries an unlisted page that collects all registrations and renders them
+as a comma-separated, copy-ready list:
+
+```
+https://castai.github.io/kimchi-workshop/emails.html
+```
+
+It is deliberately not linked from the public inbox UI — share the URL
+with facilitators only. Filter by event, or leave it on *All events* for
+the full deduped list. Same read-only data source as the dashboard
+(`events/<code>/registrations.json`).
+
 ## Internal layout
 
 ```
