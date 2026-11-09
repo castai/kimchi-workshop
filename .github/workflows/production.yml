@@ -315,6 +315,12 @@ jobs:
               echo "::error::could not fetch auto_review.py; review bypassed"
               exit 1
             }
+          # auto_review.py (fetched from the answers repo) reads prod_log.md
+          # from the workspace root; the artifact landed in artifacts/prod/.
+          # Bridge the path; if the log is genuinely absent the script's own
+          # error stays loud rather than the run silently passing.
+          [ -f artifacts/prod/prod_log.md ] && cp artifacts/prod/prod_log.md prod_log.md || true
+
           V_PASS="$V_PASS" V_TOTAL="$VISIBLE_TOTAL" PR_BODY="$PR_BODY" python3 auto_review.py
 
       - name: Act on auto-review verdict
