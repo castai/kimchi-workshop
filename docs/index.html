@@ -655,8 +655,23 @@ function actionButtons(m) {
 // ordered briefing ids: start-here -> submission (then fork)
 const FLOW_ORDER = ["start-here", "submission-lifecycle"];
 function nextStepFor(m) {
-  if (m.personal || m.category === "production" || m.category === "score") {
-    if (m.category === "score") return null; // finished state
+  // finished state: no pointer
+  if (m.category === "score") return null;
+  // chain personal onboarding: welcome -> instructions -> first briefing.
+  // welcome id is "welcome-<handle>", instructions is "instructions-<handle>"
+  // — derive the handle suffix so legacy inboxes (without an explicit
+  // handle field) still chain correctly.
+  if (m.category === "welcome") {
+    const suffix = (m.id || "").replace(/^welcome-/, "");
+    const ins = MAIL.find(x => x.category === "instructions" && x.id === `instructions-${suffix}`);
+    return ins ? `read <a href="javascript:void(0)" onclick="openMail('${esc(ins.id)}')">${esc(ins.subject)}</a> next — that one has the actual commands.` : null;
+  }
+  if (m.category === "instructions") {
+    const first = MAIL.find(x => x.id === FLOW_ORDER[0]);
+    return first ? `then read <a href="javascript:void(0)" onclick="openMail('${esc(first.id)}')">${esc(first.subject)}</a> on the left rail.` : null;
+  }
+  // production-result mails and any other personal mail: generic nudge
+  if (m.personal || m.category === "production") {
     return "Fix what production flagged, push to your branch — CI re-runs automatically. Then set nothing; your next mail arrives here when the story updates.";
   }
   const i = FLOW_ORDER.indexOf(m.id);
