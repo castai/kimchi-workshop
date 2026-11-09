@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-11-06T17:32:31.307978+00:00",
+  "generated_at": "2026-11-09T13:54:37.921817+00:00",
   "events": {
     "KOL-001": {
       "rows": [
@@ -58,6 +58,55 @@
           "rank": 1
         },
         {
+          "attendee": "vilkaz-cast",
+          "email": "vilius.kazlauskas@cast.ai",
+          "github": "vilkaz-cast",
+          "event": "KOL-001",
+          "pr": 82,
+          "pr_url": "https://github.com/castai/kimchi-workshop/pull/82",
+          "pr_title": "[submission] vilkaz-cast - incident recovery: validation, cache invalidation, secret hygiene",
+          "status": "accepted",
+          "tests_passed": 9,
+          "tests_failed": 0,
+          "review_score": 0.0,
+          "cost_usd": 2.0,
+          "cost_self_reported": true,
+          "requests": 0,
+          "models_used": [],
+          "points": 31.56,
+          "submitted_at": "2026-11-09T13:53:59.733584+00:00",
+          "scoring_config": {
+            "budget_usd": 2.0,
+            "production_total": 0,
+            "visible_total": 9,
+            "scoring_version": "v2"
+          },
+          "name": "Vilius",
+          "org": "Kimchi",
+          "designation": "Tester",
+          "production_passed": 0,
+          "production_total": 0,
+          "commits": 6,
+          "accepted_at": "2026-11-09T13:54:36.076174+00:00",
+          "elapsed_seconds": 41999,
+          "elapsed_hours": 11.67,
+          "score_breakdown": {
+            "visible_tests": 27,
+            "production_tests": 0,
+            "models_used": 0,
+            "request_count": 0,
+            "cost_efficiency": 0,
+            "time_to_accept": -3.44,
+            "commit_discipline": 8,
+            "code_quality": 0,
+            "full_clear_bonus": 0
+          },
+          "usage_verified": false,
+          "cost_source": "csv",
+          "email_not_in_kimchi": true,
+          "rank": 2
+        },
+        {
           "attendee": "linkas45",
           "email": "",
           "github": "linkas45",
@@ -69,11 +118,11 @@
           "tests_passed": 9,
           "tests_failed": 0,
           "review_score": 0.0,
-          "cost_usd": 7.8493,
+          "cost_usd": 11.2011,
           "cost_self_reported": false,
-          "requests": 480,
+          "requests": 657,
           "models_used": [],
-          "points": 27.15,
+          "points": 23.8,
           "submitted_at": "2026-11-06T17:02:39.707309+00:00",
           "scoring_config": {
             "budget_usd": 2.0,
@@ -95,7 +144,7 @@
             "production_tests": 0,
             "models_used": 0,
             "request_count": 10,
-            "cost_efficiency": -5.85,
+            "cost_efficiency": -9.2,
             "time_to_accept": -10,
             "commit_discipline": 6,
             "code_quality": 0,
@@ -104,12 +153,12 @@
           "cost_csv_usd": 0.0,
           "cost_source": "kimchi_api",
           "usage_verified": true,
-          "api_owner_id": "b6b2676f-ddf1-435d-b7ea-da19db4167ca",
-          "api_usage_fetched_at": "2026-11-06T17:32:30.219543+00:00",
-          "rank": 2
+          "api_owner_id": "a131afbc-9e34-4ecc-8c78-fac86a48d109",
+          "api_usage_fetched_at": "2026-11-09T13:54:36.642862+00:00",
+          "rank": 3
         }
       ],
-      "count": 2
+      "count": 3
     }
   }
 }
