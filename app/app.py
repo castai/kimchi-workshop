@@ -22,17 +22,29 @@ def create_app():
         return jsonify({"status": "ok"})
 
     @app.get("/tasks")
-    def list_tasks():
-        cached = cache.get("tasks:list")
+    def list_tasks():        
+        status = request.args.get('status', default=None, type=str) 
+        cache_key = "tasks:list"
+        if status is not None:
+            cache_key = cache_key + ":" + str(status)
+        cached = cache.get(cache_key)
         if cached is not None:
             return jsonify(cached)
-        tasks = store.list_tasks()
-        cache.set("tasks:list", tasks)
+        tasks = store.list_tasks(status=status)
+        cache.set(cache_key, tasks)
         return jsonify(tasks)
 
     @app.post("/tasks")
     def create_task():
         payload = request.get_json() or {}
+        if "title" not in payload:
+            return jsonify({"error":"bad_request"}), 400
+        try:
+            priority = int(payload.get("priority",1))
+        except:
+            return jsonify({"error":"bad_request"}), 400
+        if priority < 1 or priority > 5:
+            return jsonify({"error":"bad_request"}), 400
         task = store.create_task(
             title=payload["title"],
             priority=payload.get("priority", 1),

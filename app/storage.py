@@ -42,14 +42,17 @@ class TaskStore:
             cutoff = self._now() - timedelta(days=self.stale_days)
             kept = []
             for t in data["tasks"]:
+                should_keep = False
                 if t["status"] != "open":
                     kept.append(t)
                     continue
                 if t.get("updated_at"):
-                    if _parse(t["updated_at"]) >= cutoff:
-                        kept.append(t)
+                    if _parse(t["updated_at"]) <= cutoff:
+                        should_keep = True
                     continue
                 if _parse(t["created_at"]) > cutoff:
+                    should_keep = True
+                if should_keep:
                     kept.append(t)
             data["tasks"] = kept
             self._write(data)
@@ -69,8 +72,9 @@ class TaskStore:
                 tid = inc["id"]
                 if tid in by_id:
                     local = by_id[tid]
-                    if _parse(inc.get("updated_at", "")) >= _parse(local.get("updated_at", "")):
+                    if _parse(inc.get("updated_at", "")) > _parse(local.get("updated_at", "")):
                         local.update(inc)
+                        by_id[tid] = local
                 else:
                     by_id[tid] = dict(inc)
             data["tasks"] = list(by_id.values())
