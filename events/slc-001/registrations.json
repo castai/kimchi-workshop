@@ -339,6 +339,18 @@
       "joined_at": "2026-11-09T20:36:57.938047+00:00",
       "start_time": "2026-11-09T20:36:57.938058+00:00",
       "credit_status": "pending"
+    },
+    {
+      "name": "Thomas Bomboh",
+      "designation": "SRE( content creator)",
+      "org": "Cocadmin",
+      "email": "ttwthomas@gmail.com",
+      "github_handle": "ttwthomas",
+      "event_code": "SLC-001",
+      "issue_number": 135,
+      "joined_at": "2026-11-09T20:40:30.712752+00:00",
+      "start_time": "2026-11-09T20:40:30.712763+00:00",
+      "credit_status": "pending"
     }
   ]
 }
