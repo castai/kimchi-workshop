@@ -20,7 +20,7 @@ import json
 import os
 import subprocess
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO_ROOT)
@@ -206,7 +206,7 @@ def test_gc_uses_completed_at_when_updated_at_missing(tmp_path):
     from app.storage import TaskStore
 
     path = str(tmp_path / "tasks.json")
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
     _seed(path, {
         "id": 1,
         "title": "completed-at is the last activity",
@@ -224,7 +224,7 @@ def test_gc_reaps_never_touched_old_task(tmp_path):
     from app.storage import TaskStore
 
     path = str(tmp_path / "tasks.json")
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
     _seed(path, {
         "id": 1,
         "title": "old and untouched",
@@ -241,7 +241,7 @@ def test_gc_keeps_actively_updated_task(tmp_path):
     from app.storage import TaskStore
 
     path = str(tmp_path / "tasks.json")
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
     _seed(path, {
         "id": 1,
         "title": "active",
@@ -314,6 +314,24 @@ def test_gc_keeps_record_without_status(tmp_path):
     store = TaskStore(path)
     store.gc_stale_tasks()  # must not raise
     assert store.get_task(1) is not None
+
+
+def test_gc_handles_offset_aware_timestamps(tmp_path):
+    """ISO timestamps with UTC offsets must not crash gc (aware/naive mix)."""
+    from app.storage import TaskStore
+
+    path = str(tmp_path / "tasks.json")
+    _seed(path, {
+        "id": 1,
+        "title": "aware timestamp",
+        "priority": 1,
+        "status": "open",
+        "created_at": "2026-11-01T10:00:00+00:00",
+        "updated_at": "2026-11-09T10:00:00+00:00",
+    })
+    store = TaskStore(path)
+    store.gc_stale_tasks()  # must not raise (RED today: TypeError on compare)
+    assert store.get_task(1) is not None  # recent activity survives
 
 
 # --- sync payload hardening: malformed items are client errors -----------------

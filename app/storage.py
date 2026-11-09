@@ -25,7 +25,8 @@ class TaskStore:
             json.dump(data, f, indent=2)
 
     def _now(self):
-        return datetime.utcnow()
+        # Naive UTC (same value utcnow() provided, without the deprecation).
+        return datetime.now(timezone.utc).replace(tzinfo=None)
 
     def gc_stale_tasks(self):
         """Remove tasks that have been open too long (over STALE_DAYS days).
@@ -168,10 +169,17 @@ def _iso(dt):
 
 
 def _parse_ts(s):
-    """Parse an ISO timestamp; return None when missing or unparseable."""
+    """Parse an ISO timestamp; return None when missing or unparseable.
+
+    Offset-aware values are normalized to naive UTC so records written
+    with mixed timestamp styles never break comparisons.
+    """
     if not isinstance(s, str):
         return None
     try:
-        return datetime.fromisoformat(s)
+        dt = datetime.fromisoformat(s)
     except ValueError:
         return None
+    if dt.tzinfo is not None:
+        dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+    return dt
