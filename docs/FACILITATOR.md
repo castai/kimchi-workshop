@@ -103,7 +103,7 @@ What happens behind the scenes when a participant joins:
 1. They open the site, type their GitHub handle in the top-right pill,
    the gate bubble dismisses.
 2. They click the **Join event** button in the left rail.
-3. A modal pops up: full name, designation, organization, work email,
+3. A modal pops up: full name, designation, organization, GitHub email,
    event code. They fill it.
 4. They click **Submit via GitHub** — a new tab opens to a pre-filled
    GitHub issue on this repo (`[join] <name>`).
