@@ -1,11 +1,14 @@
 """Ferment Board - workshop configuration.
 
-Seed state: intentionally bad. Do not copy these patterns into anything real.
+Secrets must come from the process environment. Source files never
+embed credentials — not even for demos.
 """
 import os
 
-# TODO: move this to an environment variable before anyone notices
-SECRET_KEY = "sk-live-kimchi-workshop-9f8e7d6c5b4a"
+# Loaded from the environment so credentials never live in source. The
+# fallback is a clearly-marked development value that cannot be mistaken
+# for a real key.
+SECRET_KEY = os.environ.get("SECRET_KEY", "dev-only-not-a-real-secret")
 
 DEBUG = True
 
