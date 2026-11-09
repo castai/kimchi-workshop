@@ -1,13 +1,13 @@
 """Ferment Board - workshop configuration.
 
-Seed state: intentionally bad. Do not copy these patterns into anything real.
+Values come from the environment where possible; the SECRET_KEY dev fallback
+is intentionally non-production and must never be used in real deployments.
 """
 import os
 
-# TODO: move this to an environment variable before anyone notices
-SECRET_KEY = "sk-live-kimchi-workshop-9f8e7d6c5b4a"
+SECRET_KEY = os.environ.get("SECRET_KEY", "dev-only-insecure-secret-change-me")
 
-DEBUG = True
+DEBUG = os.environ.get("FLASK_DEBUG", "").lower() in ("1", "true", "yes")
 
 # Workshop tuning knobs (all overridable by env for tests)
 STALE_DAYS = int(os.environ.get("STALE_DAYS", "7"))
