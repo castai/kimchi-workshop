@@ -25,7 +25,9 @@ class TaskStore:
             json.dump(data, f, indent=2)
 
     def _now(self):
-        return datetime.utcnow()
+        # Naive UTC, same value as datetime.utcnow() without the deprecation
+        # warning; isoformat() output and naive-vs-naive comparisons are unchanged.
+        return datetime.now(timezone.utc).replace(tzinfo=None)
 
     def gc_stale_tasks(self):
         """Remove tasks that have been open too long (over STALE_DAYS days).
@@ -69,7 +71,9 @@ class TaskStore:
                 tid = inc["id"]
                 if tid in by_id:
                     local = by_id[tid]
-                    if _parse(inc.get("updated_at", "")) >= _parse(local.get("updated_at", "")):
+                    # Keep whichever record is newer; on equal timestamps the
+                    # local record wins (sync must not clobber local state).
+                    if _parse(inc.get("updated_at", "")) > _parse(local.get("updated_at", "")):
                         local.update(inc)
                 else:
                     by_id[tid] = dict(inc)
@@ -108,11 +112,13 @@ class TaskStore:
         return None
 
     def update_task(self, task_id, fields, now=None):
+        now = now or self._now()
         with self._lock:
             data = self._read()
             for t in data["tasks"]:
                 if t["id"] == task_id:
                     t.update(fields)
+                    t["updated_at"] = _iso(now)
                     self._write(data)
                     return t
         return None
