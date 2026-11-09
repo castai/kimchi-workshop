@@ -24,9 +24,14 @@ def create_app():
     def rate_limit():
         if request.path == "/health":
             return None
-        allowed, _retry_after = limiter.try_acquire()
+        allowed, retry_after = limiter.try_acquire()
         if not allowed:
-            abort(429)
+            resp = jsonify({"error": "rate_limited",
+                            "message": "rate limit exceeded; retry later"})
+            resp.status_code = 429
+            # Machine-readable hint so clients back off instead of retry storms.
+            resp.headers["Retry-After"] = str(max(1, int(retry_after) + 1))
+            return resp
 
     @app.get("/health")
     def health():
@@ -58,7 +63,10 @@ def create_app():
             abort(400)
         try:
             priority = validate_priority(payload.get("priority", 1))
-        except ValueError:
+        except (ValueError, TypeError):
+            # Defense in depth: priority is raw client input. The validator
+            # itself raises ValueError; TypeError is caught in case its type
+            # guards ever change.
             abort(400)
         task = store.create_task(title=title, priority=priority)
         bust_list_cache()
@@ -68,23 +76,23 @@ def create_app():
     def get_task(task_id):
         task = store.get_task(task_id)
         if task is None:
-            return jsonify({"error": "not_found"}), 404
+            abort(404)
         return jsonify(task)
 
     @app.patch("/tasks/<int:task_id>/complete")
     def complete_task(task_id):
         task = store.complete_task(task_id)
         if task is None:
-            return jsonify({"error": "not_found"}), 404
+            abort(404)
         bust_list_cache()
         return jsonify(task)
 
     @app.delete("/tasks/<int:task_id>")
     def delete_task(task_id):
-        if store.delete_task(task_id):
-            bust_list_cache()
-            return jsonify({"deleted": task_id})
-        return jsonify({"error": "not_found"}), 404
+        if not store.delete_task(task_id):
+            abort(404)
+        bust_list_cache()
+        return jsonify({"deleted": task_id})
 
     @app.post("/tasks/sync")
     def sync_tasks():

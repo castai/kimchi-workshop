@@ -59,7 +59,14 @@ class TaskStore:
                     # Deleting unparseable data is destructive.
                     kept.append(t)
                     continue
-                if _parse(last_activity) >= cutoff:
+                try:
+                    last = _parse(last_activity)
+                except ValueError:
+                    # Unparseable timestamp: keep the record for the same
+                    # reason - never destroy data we cannot interpret.
+                    kept.append(t)
+                    continue
+                if last >= cutoff:
                     kept.append(t)
             data["tasks"] = kept
             self._write(data)
@@ -79,6 +86,8 @@ class TaskStore:
                 tid = inc["id"]
                 if tid in by_id:
                     local = by_id[tid]
+                    # Tie-break policy (per docstring): equal timestamps keep
+                    # the local copy; only strictly newer incoming wins.
                     if _parse(inc.get("updated_at", "")) > _parse(local.get("updated_at", "")):
                         local.update(inc)
                 else:

@@ -253,3 +253,79 @@ def test_gc_keeps_task_without_timestamps(tmp_path):
     store = TaskStore(path)
     store.gc_stale_tasks()
     assert store.get_task(1) is not None
+
+
+def test_gc_keeps_record_with_unparseable_timestamp(tmp_path):
+    """A garbage timestamp must not crash the gc sweep or reap the task."""
+    from app.storage import TaskStore
+
+    path = str(tmp_path / "tasks.json")
+    _seed(path, {
+        "id": 1,
+        "title": "garbage timestamp",
+        "priority": 1,
+        "status": "open",
+        "updated_at": "not-a-date",
+    })
+    store = TaskStore(path)
+    store.gc_stale_tasks()  # must not raise
+    assert store.get_task(1) is not None
+
+
+# --- error-contract consistency ------------------------------------------------
+
+
+def test_404_error_shape_is_consistent(client):
+    """Route-emitted 404s and error-handler 404s share one JSON contract."""
+    handler_404 = client.get("/nonexistent-route")
+    task_404 = client.get("/tasks/999")
+    assert handler_404.status_code == 404 and task_404.status_code == 404
+    assert set(handler_404.get_json().keys()) == set(task_404.get_json().keys())
+    assert task_404.get_json()["error"] == "not_found"
+    assert client.patch("/tasks/999/complete").status_code == 404
+    assert client.delete("/tasks/999").status_code == 404
+
+
+def test_sync_missing_tasks_key_syncs_nothing(client):
+    """{} is a valid empty sync, not an error."""
+    resp = client.post("/tasks/sync", json={})
+    assert resp.status_code == 200
+    assert resp.get_json() == {"synced": 0}
+
+
+# --- configuration contract: debug off by default, fail fast in production -----
+# These reload app.config with a controlled environment; they run last so the
+# reloads cannot disturb earlier tests (app.app holds its own config bindings).
+
+
+def test_debug_defaults_off(monkeypatch):
+    import importlib
+
+    monkeypatch.delenv("FLASK_DEBUG", raising=False)
+    from app import config
+
+    importlib.reload(config)
+    assert config.DEBUG is False
+    importlib.reload(config)  # restore
+
+
+def test_debug_env_opt_in(monkeypatch):
+    import importlib
+
+    monkeypatch.setenv("FLASK_DEBUG", "1")
+    from app import config
+
+    importlib.reload(config)
+    assert config.DEBUG is True
+    importlib.reload(config)  # restore
+
+
+def test_production_env_requires_secret_key(monkeypatch):
+    import importlib
+
+    monkeypatch.setenv("ENV", "production")
+    monkeypatch.delenv("SECRET_KEY", raising=False)
+    from app import config
+
+    with pytest.raises(RuntimeError):
+        importlib.reload(config)

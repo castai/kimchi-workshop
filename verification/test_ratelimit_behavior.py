@@ -42,3 +42,14 @@ def test_fourth_task_request_in_window_is_rate_limited(client):
     resp = client.post("/tasks", json={"title": "x"})
     assert resp.status_code == 429
     assert resp.get_json()["error"] == "rate_limited"
+
+
+def test_429_includes_retry_after_header(client):
+    """Throttled clients get a machine-readable hint for when to retry."""
+    for _ in range(3):
+        client.post("/tasks", json={"title": "x"})
+    resp = client.post("/tasks", json={"title": "x"})
+    assert resp.status_code == 429
+    retry_after = resp.headers.get("Retry-After")
+    assert retry_after is not None  # RED today: header missing
+    assert int(retry_after) >= 1
