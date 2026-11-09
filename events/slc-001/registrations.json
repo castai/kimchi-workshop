@@ -277,6 +277,18 @@
       "joined_at": "2026-11-09T20:30:00.705785+00:00",
       "start_time": "2026-11-09T20:30:00.705795+00:00",
       "credit_status": "pending"
+    },
+    {
+      "name": "Nigel Nazir",
+      "designation": "Senior Linux System Administrator",
+      "org": "Southern Methodist University",
+      "email": "nnazir@smu.edu",
+      "github_handle": "nnazir",
+      "event_code": "SLC-001",
+      "issue_number": 128,
+      "joined_at": "2026-11-09T20:32:03.174605+00:00",
+      "start_time": "2026-11-09T20:32:03.174619+00:00",
+      "credit_status": "pending"
     }
   ]
 }
