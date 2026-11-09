@@ -95,6 +95,18 @@
       "joined_at": "2026-11-09T20:16:13.833328+00:00",
       "start_time": "2026-11-09T20:16:13.833341+00:00",
       "credit_status": "pending"
+    },
+    {
+      "name": "Chris M",
+      "designation": "Sr Mgr Platform Eng",
+      "org": "AlterDomus",
+      "email": "chrismonell@gmail.com",
+      "github_handle": "GazeUntoMe",
+      "event_code": "SLC-001",
+      "issue_number": 106,
+      "joined_at": "2026-11-09T20:16:24.490884+00:00",
+      "start_time": "2026-11-09T20:16:24.490895+00:00",
+      "credit_status": "pending"
     }
   ]
 }
