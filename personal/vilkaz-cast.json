@@ -37,6 +37,19 @@
       "category": "production",
       "body": "Saw your PR hit prod and the hidden suite ate it alive—zero for twenty-six, with the stage labels `auth_flow` and `cache_sync` blocking everything else. Fix the docstrings first; the spec is the honest word, not the code comments you wrote. Push again and CI reruns, but make it count this time. — Marcus Webb\n\nPush it when it is green, CI reruns.\n\n- Marcus",
       "pr_url": "https://github.com/castai/kimchi-workshop/pull/78"
+    },
+    {
+      "id": "prod-log-pr-82-c4ec50b",
+      "from": {
+        "name": "Marcus Webb",
+        "role": "SRE on-call",
+        "bg": "#1a5276"
+      },
+      "subject": "Re: deployment - production is unhappy again",
+      "timestamp": "2026-11-09 05:12 UTC",
+      "category": "production",
+      "body": "Saw your PR tank prod—0/26, with the hidden suite and the visible stage both dead on arrival. Fix the docstrings first; the spec is the honest word, not your assumptions. Push again and CI reruns, but maybe read the spec this time. —Marcus Webb\n\nPush it when it is green, CI reruns.\n\n- Marcus",
+      "pr_url": "https://github.com/castai/kimchi-workshop/pull/82"
     }
   ]
 }
