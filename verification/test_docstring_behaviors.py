@@ -272,6 +272,86 @@ def test_gc_keeps_record_with_unparseable_timestamp(tmp_path):
     assert store.get_task(1) is not None
 
 
+def test_gc_keeps_record_with_non_string_timestamp(tmp_path):
+    """A non-string timestamp (e.g. merged JSON number) must not 500 the gc."""
+    from app.storage import TaskStore
+
+    path = str(tmp_path / "tasks.json")
+    _seed(path, {
+        "id": 1,
+        "title": "numeric timestamp",
+        "priority": 1,
+        "status": "open",
+        "updated_at": 123,
+    })
+    store = TaskStore(path)
+    store.gc_stale_tasks()  # must not raise
+    assert store.get_task(1) is not None
+
+
+def test_gc_keeps_record_without_status(tmp_path):
+    """A merged-in record without a status field must not crash the sweep."""
+    from app.storage import TaskStore
+
+    path = str(tmp_path / "tasks.json")
+    _seed(path, {"id": 1, "title": "no status", "priority": 1})
+    store = TaskStore(path)
+    store.gc_stale_tasks()  # must not raise
+    assert store.get_task(1) is not None
+
+
+# --- sync payload hardening: malformed items are client errors -----------------
+
+
+def test_sync_item_missing_id_is_bad_request(client):
+    resp = client.post("/tasks/sync", json={"tasks": [{"title": "x"}]})
+    assert resp.status_code == 400
+    assert resp.get_json()["error"] == "bad_request"
+
+
+def test_sync_item_non_dict_is_bad_request(client):
+    resp = client.post("/tasks/sync", json={"tasks": ["nope"]})
+    assert resp.status_code == 400
+    assert resp.get_json()["error"] == "bad_request"
+
+
+def test_sync_item_non_int_id_is_bad_request(client):
+    resp = client.post("/tasks/sync", json={"tasks": [{"id": "abc", "title": "x"}]})
+    assert resp.status_code == 400
+    assert resp.get_json()["error"] == "bad_request"
+
+
+def test_merge_existing_task_with_garbage_timestamp_keeps_local(tmp_path):
+    """A numeric/garbage incoming timestamp must never crash or overwrite."""
+    from app.storage import TaskStore
+
+    store = TaskStore(str(tmp_path / "tasks.json"))
+    local = store.create_task("local", now=datetime(2026, 1, 1))
+    store.merge_tasks([{
+        "id": local["id"],
+        "title": "from-sync",
+        "priority": 1,
+        "status": "open",
+        "updated_at": 123,
+    }])
+    assert store.get_task(local["id"])["title"] == "local"
+
+
+def test_merge_new_task_with_garbage_timestamp_still_lands(tmp_path):
+    """New records are stored even with a bad timestamp (gc protects them)."""
+    from app.storage import TaskStore
+
+    store = TaskStore(str(tmp_path / "tasks.json"))
+    store.merge_tasks([{
+        "id": 7,
+        "title": "garbage-ts",
+        "priority": 1,
+        "status": "open",
+        "updated_at": "not-a-date",
+    }])
+    assert store.get_task(7)["title"] == "garbage-ts"
+
+
 # --- error-contract consistency ------------------------------------------------
 
 

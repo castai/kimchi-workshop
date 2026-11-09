@@ -105,6 +105,14 @@ def create_app():
         incoming = payload.get("tasks", [])
         if not isinstance(incoming, list):
             abort(400)
+        for item in incoming:
+            # Every item must be an object with an integer id; anything else
+            # is a client error, not a KeyError 500 mid-merge.
+            if not isinstance(item, dict):
+                abort(400)
+            item_id = item.get("id")
+            if isinstance(item_id, bool) or not isinstance(item_id, int):
+                abort(400)
         tasks = store.merge_tasks(incoming)
         bust_list_cache()
         return jsonify({"synced": len(tasks)})

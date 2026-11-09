@@ -42,7 +42,10 @@ class TaskStore:
             cutoff = self._now() - timedelta(days=self.stale_days)
             kept = []
             for t in data["tasks"]:
-                if t["status"] != "open":
+                if t.get("status") != "open":
+                    # Completed tasks survive; records with an unknown or
+                    # missing status are kept too - gc never destroys data
+                    # it cannot interpret.
                     kept.append(t)
                     continue
                 # Age since LAST ACTIVITY: updated_at or completed_at,
@@ -54,16 +57,10 @@ class TaskStore:
                     or t.get("completed_at")
                     or t.get("created_at")
                 )
-                if not last_activity:
-                    # Malformed or legacy record with no timestamps: keep it.
-                    # Deleting unparseable data is destructive.
-                    kept.append(t)
-                    continue
-                try:
-                    last = _parse(last_activity)
-                except ValueError:
-                    # Unparseable timestamp: keep the record for the same
-                    # reason - never destroy data we cannot interpret.
+                last = _parse_ts(last_activity)
+                if last is None:
+                    # No (or unparseable) timestamps: keep the record -
+                    # deleting data we cannot interpret is destructive.
                     kept.append(t)
                     continue
                 if last >= cutoff:
@@ -88,7 +85,12 @@ class TaskStore:
                     local = by_id[tid]
                     # Tie-break policy (per docstring): equal timestamps keep
                     # the local copy; only strictly newer incoming wins.
-                    if _parse(inc.get("updated_at", "")) > _parse(local.get("updated_at", "")):
+                    # An unparseable incoming timestamp never overwrites local
+                    # data; a corrupt local timestamp self-heals from a valid
+                    # incoming one.
+                    inc_ts = _parse_ts(inc.get("updated_at", ""))
+                    local_ts = _parse_ts(local.get("updated_at", ""))
+                    if inc_ts is not None and (local_ts is None or inc_ts > local_ts):
                         local.update(inc)
                 else:
                     by_id[tid] = dict(inc)
@@ -165,5 +167,11 @@ def _iso(dt):
     return dt.isoformat()
 
 
-def _parse(s):
-    return datetime.fromisoformat(s) if s else datetime.min
+def _parse_ts(s):
+    """Parse an ISO timestamp; return None when missing or unparseable."""
+    if not isinstance(s, str):
+        return None
+    try:
+        return datetime.fromisoformat(s)
+    except ValueError:
+        return None
