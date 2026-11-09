@@ -85,13 +85,15 @@ jobs:
             python .verification/format_prod_log.py /tmp/prod.xml prod_log.md 2>/dev/null \
               || python .verification/format_prod_log.py /tmp/prod.xml prod_log.md
           else
-            # No hidden tests available, fabricate a passing log so the
-            # downstream production.yml gate doesn't block on artifacts
-            # being absent. NOTE: printf, not a heredoc - bash needs the
-            # terminator at column 0 and YAML block-scalar indentation puts
-            # every line >= 2 spaces deep, which silently breaks <<EOF
-            # (parse-time syntax error, masked by continue-on-error).
-            printf 'Production score: 0/26 (hidden tests not available)\nVisible suite ran; hidden stage data not yet wired up.\n' > prod_log.md
+            # Hidden tests unavailable (fork PRs receive no secrets, so the
+            # Gist fetch above always fails there). Emit an explicitly-marked
+            # UNAVAILABLE log: the marker line is the contract production.yml
+            # detects, and the log must NOT match the downstream score regex
+            # ("Production score: N/N") so nothing treats it as a real 0/26
+            # run. NOTE: printf, not a heredoc - YAML block-scalar
+            # indentation breaks <<EOF terminators (parse-time syntax error,
+            # masked by continue-on-error).
+            printf 'PRODUCTION_SUITE: UNAVAILABLE (fork run; hidden tests not fetched)\nProduction score: unavailable/26\nVisible suite ran; hidden stage data not yet wired up.\n' > prod_log.md
           fi
           cat prod_log.md
 

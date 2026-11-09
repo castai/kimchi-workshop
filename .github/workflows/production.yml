@@ -118,6 +118,45 @@ jobs:
           print(f"is_submission={ok}")
           EOF
 
+      # The production artifact can be the UNAVAILABLE fallback that
+      # score-pr.yml emits when hidden tests were never fetched (fork PRs
+      # receive no secrets). Downstream LLM framing and auto-review must
+      # ONLY run on a real log: framing the fallback has produced
+      # hallucinated reports (fix lists for files that do not exist in this
+      # repo), and auto-review blocks on a fabricated 0/26 that no
+      # participant can ever clear from a fork.
+      - name: Detect production data availability
+        id: data
+        run: |
+          LOG=artifacts/prod/prod_log.md
+          PROD_DATA=unavailable
+          if [ -f "$LOG" ] \
+            && ! grep -q 'PRODUCTION_SUITE: UNAVAILABLE' "$LOG" \
+            && grep -qE 'Production score: [0-9]+/[0-9]+' "$LOG"; then
+            PROD_DATA=available
+          fi
+          echo "prod_data=$PROD_DATA" >> "$GITHUB_OUTPUT"
+          echo "prod_data=$PROD_DATA"
+
+          # Visible-suite numbers for the honest status comment. score.json
+          # comes from a run that executes PR code, so sanitize both values
+          # to plain integers before they reach a PR comment.
+          V_LABEL=unavailable
+          if [ -f artifacts/score/score.json ]; then
+            VP=$(python3 -c "import json;d=json.load(open('artifacts/score/score.json'));print('%s %s' % (d.get('tests_passed'), d.get('tests_failed')))" 2>/dev/null || true)
+            set -- $VP
+            V_PASS=${1:-}
+            V_FAIL=${2:-}
+            if [ -n "$V_PASS" ] && [ -n "$V_FAIL" ]; then
+              case "$V_PASS$V_FAIL" in
+                *[!0-9]*) : ;;
+                *) V_LABEL="$V_PASS/$((V_PASS + V_FAIL))" ;;
+              esac
+            fi
+          fi
+          echo "visible_label=$V_LABEL" >> "$GITHUB_OUTPUT"
+          echo "visible_label=$V_LABEL"
+
       - name: Pick rotating SRE sender
         id: sender
         run: |
@@ -157,6 +196,7 @@ jobs:
           echo "Picked SRE #$IDX: $NAME"
 
       - name: "Gate: production score must be at least 15/26"
+        if: steps.data.outputs.prod_data == 'available'
         continue-on-error: true
         run: |
           python3 - <<'EOF'
@@ -178,7 +218,7 @@ jobs:
           EOF
 
       - name: Frame production log as an email via Kimchi
-        if: always() && steps.meta.outputs.is_submission == 'true'
+        if: always() && steps.meta.outputs.is_submission == 'true' && steps.data.outputs.prod_data == 'available'
         env:
           KIMCHI_API_KEY: ${{ secrets.KIMCHI_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -201,7 +241,7 @@ jobs:
           || cp artifacts/prod/prod_log.md prod_email_body.txt
 
       - name: Frame production log as a technical PR comment
-        if: always() && steps.meta.outputs.is_submission == 'true'
+        if: always() && steps.meta.outputs.is_submission == 'true' && steps.data.outputs.prod_data == 'available'
         env:
           KIMCHI_API_KEY: ${{ secrets.KIMCHI_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -219,7 +259,7 @@ jobs:
           cat prod_pr_comment.txt
 
       - name: Post production log on the PR
-        if: always() && steps.meta.outputs.is_submission == 'true'
+        if: always() && steps.meta.outputs.is_submission == 'true' && steps.data.outputs.prod_data == 'available'
         uses: actions/github-script@v7
         with:
           script: |
@@ -238,8 +278,38 @@ jobs:
               body,
             });
 
+      # No real production data: post ONE static, accurate status comment
+      # instead of an LLM-framed report. No fabricated scores, no invented
+      # fix lists; facilitator acceptance remains the documented decision
+      # (workshop/FACILITATOR.md).
+      - name: Post honest production status on the PR
+        if: always() && steps.meta.outputs.is_submission == 'true' && steps.data.outputs.prod_data == 'unavailable'
+        env:
+          VISIBLE_LABEL: ${{ steps.data.outputs.visible_label }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const label = process.env.VISIBLE_LABEL || "unavailable";
+            const visible = label !== "unavailable"
+              ? `Visible suite: **${label}** passing (from the scoring run).`
+              : "Visible suite: result unavailable (check the Score submission PR run).";
+            const body = [
+              "## Production report — not run for this push",
+              "",
+              visible,
+              "Production suite: **not run** — the hidden scenario suite is not available to fork PR runs (CI secrets are withheld from forks by design), so no production score was produced for this push.",
+              "",
+              "Nothing above is a real failure. Auto-review gating is skipped when there is no production data; a facilitator reviews and applies the `accepted` label per `workshop/FACILITATOR.md`.",
+            ].join("\n");
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: ${{ steps.meta.outputs.pr_number }},
+              body,
+            });
+
       - name: Publish production log to the participant's site inbox
-        if: always() && steps.meta.outputs.is_submission == 'true'
+        if: always() && steps.meta.outputs.is_submission == 'true' && steps.data.outputs.prod_data == 'available'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SRE_SENDER_NAME: ${{ steps.sender.outputs.name }}
@@ -286,7 +356,7 @@ jobs:
           path: artifacts/prod/prod_log.md
 
       - name: Auto-review gates and label
-        if: always() && steps.meta.outputs.is_submission == 'true'
+        if: always() && steps.meta.outputs.is_submission == 'true' && steps.data.outputs.prod_data == 'available'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           KIMCHI_API_KEY: ${{ secrets.KIMCHI_API_KEY }}
@@ -324,7 +394,7 @@ jobs:
           V_PASS="$V_PASS" V_TOTAL="$VISIBLE_TOTAL" PR_BODY="$PR_BODY" python3 auto_review.py
 
       - name: Act on auto-review verdict
-        if: always() && steps.meta.outputs.is_submission == 'true'
+        if: always() && steps.meta.outputs.is_submission == 'true' && steps.data.outputs.prod_data == 'available'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ steps.meta.outputs.pr_number }}
