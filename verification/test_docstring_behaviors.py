@@ -82,6 +82,20 @@ def test_malformed_json_is_bad_request_json(client):
     assert resp.get_json()["error"] == "bad_request"
 
 
+def test_500_response_does_not_leak_internal_details(client, monkeypatch):
+    """Internal error details must never reach the client."""
+    def boom(*a, **k):
+        raise RuntimeError("internal db password=hunter2")
+
+    monkeypatch.setattr("app.storage.TaskStore.list_tasks", boom)
+    client.application.config["PROPAGATE_EXCEPTIONS"] = False
+    resp = client.get("/tasks")
+    assert resp.status_code == 500
+    body = resp.get_data(as_text=True)
+    assert "hunter2" not in body
+    assert resp.get_json()["error"] == "internal_error"
+
+
 def test_not_found_errors_are_json(client):
     resp = client.get("/tasks/999")
     assert resp.status_code == 404
