@@ -29,28 +29,63 @@ env:
 
 jobs:
   production:
-    # Only fire for [submission] PRs whose scoring run succeeded.
-    if: |
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.pull_requests[0].title != null &&
-      startsWith(github.event.workflow_run.pull_requests[0].title, '[submission]')
+    # Triggered by every successful score run. The [submission] gate runs
+    # INSIDE the job from score.json: for runs triggered by fork PRs (the
+    # workshop requires "fork first"), workflow_run.pull_requests is empty,
+    # so the event payload cannot supply the PR title, number or author.
+    if: github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
 
     steps:
-      - name: Record PR metadata
-        id: pr
+      # Test execution happened in the upstream workflow. We only read the
+      # published artifacts. No checkout of PR code anywhere.
+      # Explicit `path:` so files land where the rest of the job reads them.
+      - name: Download score artifact from the scoring run
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: submission-score
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: artifacts/score
+
+      - name: Download production report artifact from the scoring run
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: submission-prod-score
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: artifacts/prod
+
+      # score.json is written by scripts/score_pr.py in the scoring run and
+      # carries pr, pr_url, pr_title and github (the author's handle).
+      - name: Read submission metadata from the score artifact
+        id: meta
         run: |
-          PR_NUMBER="${{ github.event.workflow_run.pull_requests[0].number }}"
-          HEAD_SHA="${{ github.event.workflow_run.head_sha }}"
-          SENDER="${{ github.event.workflow_run.pull_requests[0].user.login }}"
-          echo "number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
-          echo "head_sha=$HEAD_SHA" >> "$GITHUB_OUTPUT"
-          echo "sender=$SENDER" >> "$GITHUB_OUTPUT"
+          python3 - <<'EOF'
+          import json, os
+          if not os.path.exists('artifacts/score/score.json'):
+              print("::warning::score.json missing; treating run as non-submission")
+              d = {}
+              title = ''
+          else:
+              with open('artifacts/score/score.json') as f:
+                  d = json.load(f)
+              title = str(d.get('pr_title', ''))
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              f.write(f"pr_number={d.get('pr', '')}\n")
+              f.write(f"pr_title={title}\n")
+              f.write(f"sender={d.get('github', '')}\n")
+              f.write(f"pr_url={d.get('pr_url', '')}\n")
+              f.write(f"is_submission={'true' if title.startswith('[submission]') else 'false'}\n")
+          print(f"PR title: {title}")
+          EOF
 
       - name: Pick rotating SRE sender
         id: sender
         run: |
-          HEAD_SHA="${{ steps.pr.outputs.head_sha }}"
+          HEAD_SHA="${{ github.event.workflow_run.head_sha }}"
           FIRST_OCTET=$(( 16#${HEAD_SHA:0:2} ))
           IDX=$(( FIRST_OCTET % 5 ))
           case "$IDX" in
@@ -85,21 +120,15 @@ jobs:
           echo "tone=$TONE" >> "$GITHUB_OUTPUT"
           echo "Picked SRE #$IDX: $NAME"
 
-      # Test execution happened in the upstream workflow. We only read the
-      # published score artifact. No checkout of PR code anywhere.
-      - name: Download test artifacts from the scoring run
-        uses: actions/download-artifact@v4
-        with:
-          name: submission-prod-score
-          run-id: ${{ github.event.workflow_run.id }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
       - name: "Gate: production score must be at least 15/26"
         continue-on-error: true
         run: |
           python3 - <<'EOF'
-          import re, sys
-          out = open("prod_log.md").read()
+          import re, sys, os
+          if not os.path.exists('artifacts/prod/prod_log.md'):
+              print("No production log found.")
+              sys.exit(1)
+          out = open('artifacts/prod/prod_log.md').read()
           m = re.search(r"Production score: (\d+)/(\d+)", out)
           if not m:
               print("No production score found in log.")
@@ -113,7 +142,7 @@ jobs:
           EOF
 
       - name: Frame production log as an email via Kimchi
-        if: always()
+        if: always() && steps.meta.outputs.is_submission == 'true'
         env:
           KIMCHI_API_KEY: ${{ secrets.KIMCHI_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -126,17 +155,17 @@ jobs:
             -H "Accept: application/vnd.github.v3.raw" \
             -o frame_email.py \
             "https://api.github.com/repos/castai/kimchi-workshop-answers/contents/.verification/frame_email.py?ref=verification" \
-            || cp prod_log.md prod_email_body.txt
+            || cp artifacts/prod/prod_log.md prod_email_body.txt
           [ -f prod_email_body.txt ] && exit 0
           python3 frame_email.py \
-            --input prod_log.md \
+            --input artifacts/prod/prod_log.md \
             --output prod_email_body.txt \
             --sender-name "$SRE_SENDER_NAME" \
             --tone "$SRE_TONE" \
-          || cp prod_log.md prod_email_body.txt
+          || cp artifacts/prod/prod_log.md prod_email_body.txt
 
       - name: Frame production log as a technical PR comment
-        if: always()
+        if: always() && steps.meta.outputs.is_submission == 'true'
         env:
           KIMCHI_API_KEY: ${{ secrets.KIMCHI_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -147,14 +176,14 @@ jobs:
             -H "Accept: application/vnd.github.v3.raw" \
             -o frame_pr_comment.py \
             "https://api.github.com/repos/castai/kimchi-workshop-answers/contents/.verification/frame_pr_comment.py?ref=verification" \
-            || cp prod_log.md prod_pr_comment.txt
+            || cp artifacts/prod/prod_log.md prod_pr_comment.txt
           [ -f prod_pr_comment.txt ] && exit 0
-          python3 frame_pr_comment.py prod_log.md prod_pr_comment.txt \
-            || cp prod_log.md prod_pr_comment.txt
+          python3 frame_pr_comment.py artifacts/prod/prod_log.md prod_pr_comment.txt \
+            || cp artifacts/prod/prod_log.md prod_pr_comment.txt
           cat prod_pr_comment.txt
 
       - name: Post production log on the PR
-        if: always()
+        if: always() && steps.meta.outputs.is_submission == 'true'
         uses: actions/github-script@v7
         with:
           script: |
@@ -162,19 +191,19 @@ jobs:
             let bodyFile = null;
             if (fs.existsSync("prod_pr_comment.txt")) {
               bodyFile = "prod_pr_comment.txt";
-            } else if (fs.existsSync("prod_log.md")) {
-              bodyFile = "prod_log.md";
+            } else if (fs.existsSync("artifacts/prod/prod_log.md")) {
+              bodyFile = "artifacts/prod/prod_log.md";
             }
             const body = bodyFile ? fs.readFileSync(bodyFile, "utf8") : "Could not parse production results.";
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: ${{ steps.pr.outputs.number }},
+              issue_number: ${{ steps.meta.outputs.pr_number }},
               body,
             });
 
       - name: Publish production log to the participant's site inbox
-        if: always()
+        if: always() && steps.meta.outputs.is_submission == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SRE_SENDER_NAME: ${{ steps.sender.outputs.name }}
@@ -186,43 +215,41 @@ jobs:
           cd site
           git config user.name "kimchi-workshop-bot"
           git config user.email "bot@users.noreply.github.com"
-          BODY_FILE="../prod_email_body.txt"
-          if [ ! -s "$BODY_FILE" ]; then
-            BODY_FILE="../prod_log.md"
-          fi
+          BODY_FILE="../artifacts/prod/prod_log.md"
           if [ ! -s "$BODY_FILE" ]; then
             printf 'The production run did not produce a report. The facilitator has been notified.\n' > "$BODY_FILE"
           fi
           test -f append_personal_mail.py
-          SHORT_SHA=$(echo "${{ steps.pr.outputs.head_sha }}" | cut -c1-7)
+          SHORT_SHA=$(echo "${{ github.event.workflow_run.head_sha }}" | cut -c1-7)
           python3 append_personal_mail.py \
             --site-dir . \
-            --handle "${{ steps.pr.outputs.sender }}" \
-            --id "prod-log-pr-${{ steps.pr.outputs.number }}-${SHORT_SHA}" \
+            --handle "${{ steps.meta.outputs.sender }}" \
+            --id "prod-log-pr-${{ steps.meta.outputs.pr_number }}-${SHORT_SHA}" \
             --from-name "$SRE_SENDER_NAME" \
             --from-role "SRE on-call" \
             --from-bg "$SRE_SENDER_BG" \
             --subject "Re: deployment - production is unhappy again" \
             --category production \
             --body-file "$BODY_FILE" \
-            --pr-url "${{ github.event.workflow_run.pull_requests[0].html_url }}"
-          git add "personal/${{ steps.pr.outputs.sender }}.json"
-          git commit -m "Inbox: production report for @${{ steps.pr.outputs.sender }} (PR #${{ steps.pr.outputs.number }}, by $SRE_SENDER_NAME)" || echo "nothing to commit"
+            --pr-url "${{ steps.meta.outputs.pr_url }}"
+          git add "personal/${{ steps.meta.outputs.sender }}.json"
+          git commit -m "Inbox: production report for @${{ steps.meta.outputs.sender }} (PR #${{ steps.meta.outputs.pr_number }}, by $SRE_SENDER_NAME)" || echo "nothing to commit"
           git push origin gh-pages
 
       - name: Upload production score
+        if: steps.meta.outputs.is_submission == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: production-score
-          path: prod_log.md
+          path: artifacts/prod/prod_log.md
 
       - name: Auto-review gates and label
-        if: always()
+        if: always() && steps.meta.outputs.is_submission == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           KIMCHI_API_KEY: ${{ secrets.KIMCHI_API_KEY }}
           KIMCHI_REVIEW_MODEL: ${{ secrets.KIMCHI_REVIEW_MODEL }}
-          PR_NUMBER: ${{ steps.pr.outputs.number }}
+          PR_NUMBER: ${{ steps.meta.outputs.pr_number }}
           HEAD_REPO: ${{ github.event.workflow_run.head_repository.full_name }}
           HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
         id: review
@@ -230,15 +257,12 @@ jobs:
           set -e
           PR_BODY=$(gh pr view "$PR_NUMBER" --repo "${{ github.repository }}" --json body --jq '.body')
 
-          # Pull the visible suite score from the same scoring run's artifact.
+          # Visible suite score, read from the already-downloaded score.json.
           VISIBLE_TOTAL=9
           V_PASS=0
-          mkdir -p /tmp/vis
-          if gh run download "${{ github.event.workflow_run.id }}" --repo "${{ github.repository }}" --name submission-score -D /tmp/vis 2>/dev/null; then
-            if [ -f /tmp/vis/score.json ]; then
-              V_PASS=$(python3 -c "import json;d=json.load(open('/tmp/vis/score.json'));print(d.get('tests_passed',0))")
-              VISIBLE_TOTAL=$(python3 -c "import json;d=json.load(open('/tmp/vis/score.json'));print(d.get('tests_passed',0)+d.get('tests_failed',0))")
-            fi
+          if [ -f artifacts/score/score.json ]; then
+            V_PASS=$(python3 -c "import json;d=json.load(open('artifacts/score/score.json'));print(d.get('tests_passed',0))")
+            VISIBLE_TOTAL=$(python3 -c "import json;d=json.load(open('artifacts/score/score.json'));print(d.get('tests_passed',0)+d.get('tests_failed',0))")
           fi
 
           curl -sSfL \
@@ -252,10 +276,10 @@ jobs:
           V_PASS="$V_PASS" V_TOTAL="$VISIBLE_TOTAL" PR_BODY="$PR_BODY" python3 auto_review.py
 
       - name: Act on auto-review verdict
-        if: always()
+        if: always() && steps.meta.outputs.is_submission == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_NUMBER: ${{ steps.pr.outputs.number }}
+          PR_NUMBER: ${{ steps.meta.outputs.pr_number }}
           ACCEPT: ${{ steps.review.outputs.accept }}
           FAILURES: ${{ steps.review.outputs.failures }}
           V_PASS: ${{ steps.review.outputs.vpass }}
