@@ -207,7 +207,7 @@
 
   <div class="bfoot">
     <span>Source: <code>current_event.json</code> + <code>historic_events.json</code> → <code>events/&lt;code&gt;/registrations.json</code> on gh-pages.</span>
-    <span>auto-refreshes every 60s</span>
+    <span>auto-refreshes every 10s</span>
   </div>
 </main>
 
@@ -371,7 +371,7 @@ document.getElementById("eventSel").addEventListener("change", render);
 document.getElementById("search").addEventListener("input", render);
 
 loadAll();
-setInterval(loadAll, 60000);
+setInterval(loadAll, 10000);
 </script>
 </body>
 </html>
