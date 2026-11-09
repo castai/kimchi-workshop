@@ -52,6 +52,7 @@ hints.
 
    ```text
    attendee: <your-handle>
+   email: <your-email-you-registered>
    event: <event-code your facilitator announced>
    review_score:
    ```
