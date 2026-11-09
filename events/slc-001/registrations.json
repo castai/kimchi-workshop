@@ -222,13 +222,14 @@
       "name": "Josh Simnitt",
       "designation": "software developer",
       "org": "9ByNight",
-      "email": "stone7ninja@proton.me",
+      "email": "[REDACTED]",
       "github_handle": "star7js",
       "event_code": "SLC-001",
       "issue_number": 120,
-      "joined_at": "2026-11-09T20:22:51.430184+00:00",
-      "start_time": "2026-11-09T20:22:51.430195+00:00",
-      "credit_status": "pending"
+      "joined_at": "2026-11-09T20:41:30.712131+00:00",
+      "start_time": "2026-11-09T20:41:30.712144+00:00",
+      "credit_status": "pending",
+      "rejoined_count": 1
     },
     {
       "name": "Ben M",
