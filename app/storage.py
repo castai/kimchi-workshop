@@ -30,29 +30,23 @@ class TaskStore:
     def gc_stale_tasks(self):
         """Remove tasks that have been open too long (over STALE_DAYS days).
 
-        BUG: recency is computed against (created_at, updated_at) - a task
-        created 10 days ago that the user keeps updating stays forever;
-        a task created yesterday that was updated once stays too. The
-        intended policy: age since LAST ACTIVITY (updated_at or
-        completed_at, whichever exists). Fix so an actively-updated task
-        survives and a never-touched old task is reaped.
+        Age is measured since LAST ACTIVITY: updated_at or completed_at,
+        whichever exists (falling back to created_at). An actively updated
+        task therefore survives; a never-touched old task is reaped. Tasks
+        that are not open are never removed.
         """
         with self._lock:
             data = self._read()
             cutoff = self._now() - timedelta(days=self.stale_days)
             kept = []
             for t in data["tasks"]:
-                should_keep = False
                 if t["status"] != "open":
                     kept.append(t)
                     continue
-                if t.get("updated_at"):
-                    if _parse(t["updated_at"]) <= cutoff:
-                        should_keep = True
-                    continue
-                if _parse(t["created_at"]) > cutoff:
-                    should_keep = True
-                if should_keep:
+                last_activity = (
+                    t.get("updated_at") or t.get("completed_at") or t.get("created_at")
+                )
+                if _parse(last_activity) >= cutoff:
                     kept.append(t)
             data["tasks"] = kept
             self._write(data)
@@ -61,9 +55,8 @@ class TaskStore:
     def merge_tasks(self, incoming):
         """Merge tasks from a sync payload (id, title, priority, status).
 
-        BUG: blindly overwrites the local task when incoming is older -
-        last-writer-wins by incoming. The intended policy: keep whichever
-        task has the later updated_at; on equal timestamps, keep local.
+        Keep whichever task has the later updated_at; on equal
+        timestamps, keep local.
         """
         with self._lock:
             data = self._read()
@@ -151,4 +144,15 @@ def _iso(dt):
 
 
 def _parse(s):
-    return datetime.fromisoformat(s) if s else datetime.min
+    """Parse an ISO-8601 timestamp to a naive UTC datetime.
+
+    Naive strings are taken as UTC. Aware timestamps (including a
+    trailing "Z") are converted to UTC and made naive so comparisons
+    never mix naive and aware values. Empty input maps to datetime.min.
+    """
+    if not s:
+        return datetime.min
+    dt = datetime.fromisoformat(str(s).replace("Z", "+00:00"))
+    if dt.tzinfo is not None:
+        dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+    return dt
