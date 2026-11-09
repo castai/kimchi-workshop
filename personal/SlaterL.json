@@ -1,0 +1,29 @@
+{
+  "handle": "SlaterL",
+  "emails": [
+    {
+      "id": "welcome-SlaterL",
+      "handle": "SlaterL",
+      "from": {
+        "name": "Sam Carter",
+        "role": "VP Engineering"
+      },
+      "category": "welcome",
+      "subject": "Welcome aboard, Slater Lloyd",
+      "body": "Settle in.\n\nThe task-api incident sits on the table. Sam's first briefing on the left explains the rollback and where your runtime sits now \u2014 start there once you've run the commands in the email below.\n\nYour start time just got logged for event SLC-001 (issue #123). Credit allocation goes to the facilitator's queue; once credits post, the agent is live on your fork.\n\nRead the briefings in order, then fork and ship a PR. We'll keep score.",
+      "timestamp": "2026-11-09 20:23 UTC"
+    },
+    {
+      "id": "instructions-SlaterL",
+      "handle": "SlaterL",
+      "from": {
+        "name": "Marcus Okafor",
+        "role": "Senior SRE"
+      },
+      "category": "instructions",
+      "subject": "Run these four commands to set up your runtime",
+      "body": "Here's the actual getting-started sheet. Five steps, ~3 minutes.\n\n## 1. Get the repo\n\n```\ngit clone https://github.com/castai/kimchi-workshop.git\ncd kimchi-workshop\n```\n\n## 2. Make a clean environment\n\n```\npython3 -m venv .venv && source .venv/bin/activate\npip install -r requirements.txt\n```\n\n## 3. Run the tests\n\n```\npython -m pytest tests/ -q\n```\n\nExpected output: `4 failed, 5 passed`. That red is your starting position \u2014 the four failed tests are where the hasty hot-patch broke the spec.\n\n## 4. Read the incident before you change anything\n\nOpen `PRODUCTION-INCIDENT.md` in the repo root. It explains what the service is supposed to do and why the previous patcher failed.\n\n## 5. Set your identity\n\nRun `kimchi` in the repo root and say yes when it asks to trust the project. Then `/tags add attendee:<your-github-handle>` \u2014 that's how your spend gets attributed when the leaderboard scores you.\n\nOnce the four red are green, you're ready for the briefings on the left rail. Start with Sam's incident brief.\n\n\u2014 Marcus",
+      "timestamp": "2026-11-09 20:23 UTC"
+    }
+  ]
+}
