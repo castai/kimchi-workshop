@@ -25,7 +25,8 @@ class TaskStore:
             json.dump(data, f, indent=2)
 
     def _now(self):
-        return datetime.utcnow()
+        # Naive UTC (same value utcnow() provided, without the deprecation).
+        return datetime.now(timezone.utc).replace(tzinfo=None)
 
     def gc_stale_tasks(self):
         """Remove tasks that have been open too long (over STALE_DAYS days).
@@ -42,14 +43,28 @@ class TaskStore:
             cutoff = self._now() - timedelta(days=self.stale_days)
             kept = []
             for t in data["tasks"]:
-                if t["status"] != "open":
+                if t.get("status") != "open":
+                    # Completed tasks survive; records with an unknown or
+                    # missing status are kept too - gc never destroys data
+                    # it cannot interpret.
                     kept.append(t)
                     continue
-                if t.get("updated_at"):
-                    if _parse(t["updated_at"]) >= cutoff:
-                        kept.append(t)
+                # Age since LAST ACTIVITY: updated_at or completed_at,
+                # whichever exists; created_at only as the never-touched
+                # fallback. An actively-updated task survives; an old
+                # untouched task is reaped.
+                last_activity = (
+                    t.get("updated_at")
+                    or t.get("completed_at")
+                    or t.get("created_at")
+                )
+                last = _parse_ts(last_activity)
+                if last is None:
+                    # No (or unparseable) timestamps: keep the record -
+                    # deleting data we cannot interpret is destructive.
+                    kept.append(t)
                     continue
-                if _parse(t["created_at"]) > cutoff:
+                if last >= cutoff:
                     kept.append(t)
             data["tasks"] = kept
             self._write(data)
@@ -69,11 +84,22 @@ class TaskStore:
                 tid = inc["id"]
                 if tid in by_id:
                     local = by_id[tid]
-                    if _parse(inc.get("updated_at", "")) >= _parse(local.get("updated_at", "")):
+                    # Tie-break policy (per docstring): equal timestamps keep
+                    # the local copy; only strictly newer incoming wins.
+                    # An unparseable incoming timestamp never overwrites local
+                    # data; a corrupt local timestamp self-heals from a valid
+                    # incoming one.
+                    inc_ts = _parse_ts(inc.get("updated_at", ""))
+                    local_ts = _parse_ts(local.get("updated_at", ""))
+                    if inc_ts is not None and (local_ts is None or inc_ts > local_ts):
                         local.update(inc)
                 else:
                     by_id[tid] = dict(inc)
             data["tasks"] = list(by_id.values())
+            # Keep ids collision-free: external sync ids can exceed next_id,
+            # so creations must never reuse an id already in the store.
+            highest = max((t["id"] for t in data["tasks"]), default=0)
+            data["next_id"] = max(data["next_id"], highest + 1)
             self._write(data)
             return data["tasks"]
 
@@ -146,5 +172,18 @@ def _iso(dt):
     return dt.isoformat()
 
 
-def _parse(s):
-    return datetime.fromisoformat(s) if s else datetime.min
+def _parse_ts(s):
+    """Parse an ISO timestamp; return None when missing or unparseable.
+
+    Offset-aware values are normalized to naive UTC so records written
+    with mixed timestamp styles never break comparisons.
+    """
+    if not isinstance(s, str):
+        return None
+    try:
+        dt = datetime.fromisoformat(s)
+    except ValueError:
+        return None
+    if dt.tzinfo is not None:
+        dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+    return dt

@@ -1,8 +1,10 @@
 """Ferment Board API. Small Flask app used for the workshop challenges."""
-from flask import Flask, jsonify, request
+from flask import Flask, abort, jsonify, request
 
 from app.cache import TTLCache
 from app.config import CACHE_TTL, RATE_LIMIT, RATE_WINDOW, data_file
+from app.errors import register_error_handlers
+from app.models import validate_priority, validate_title
 from app.ratelimit import SlidingWindowLimiter
 from app.storage import TaskStore
 
@@ -11,11 +13,25 @@ def create_app():
     app = Flask(__name__)
     store = TaskStore(data_file())
     cache = TTLCache(CACHE_TTL)
+    register_error_handlers(app)
+
+    def bust_list_cache():
+        cache.invalidate_prefix("tasks:list")
+
+    limiter = SlidingWindowLimiter(RATE_LIMIT, RATE_WINDOW)
 
     @app.before_request
     def rate_limit():
-        limiter = SlidingWindowLimiter(RATE_LIMIT, RATE_WINDOW)
-        limiter.acquire()
+        if request.path == "/health":
+            return None
+        allowed, retry_after = limiter.try_acquire()
+        if not allowed:
+            resp = jsonify({"error": "rate_limited",
+                            "message": "rate limit exceeded; retry later"})
+            resp.status_code = 429
+            # Machine-readable hint so clients back off instead of retry storms.
+            resp.headers["Retry-After"] = str(max(1, int(retry_after) + 1))
+            return resp
 
     @app.get("/health")
     def health():
@@ -23,51 +39,83 @@ def create_app():
 
     @app.get("/tasks")
     def list_tasks():
-        cached = cache.get("tasks:list")
+        status = request.args.get("status")
+        if status is not None and status not in ("open", "completed"):
+            abort(400)
+        key = f"tasks:list:{status or 'all'}"
+        cached = cache.get(key)
         if cached is not None:
             return jsonify(cached)
-        tasks = store.list_tasks()
-        cache.set("tasks:list", tasks)
+        tasks = store.list_tasks(status)
+        cache.set(key, tasks)
         return jsonify(tasks)
 
     @app.post("/tasks")
     def create_task():
-        payload = request.get_json() or {}
-        task = store.create_task(
-            title=payload["title"],
-            priority=payload.get("priority", 1),
-        )
+        payload = request.get_json(silent=True) or {}
+        if not isinstance(payload, dict):
+            abort(400)
+        try:
+            title = validate_title(payload.get("title"))
+            priority = validate_priority(payload.get("priority", 1))
+        except (ValueError, TypeError):
+            # Defense in depth: both fields are raw client input. The
+            # validators raise ValueError; TypeError is caught in case the
+            # validators' own type guards ever change.
+            abort(400)
+        task = store.create_task(title=title, priority=priority)
+        bust_list_cache()
         return jsonify(task), 201
 
     @app.get("/tasks/<int:task_id>")
     def get_task(task_id):
         task = store.get_task(task_id)
         if task is None:
-            return jsonify({"error": "not_found"}), 404
+            abort(404)
         return jsonify(task)
 
     @app.patch("/tasks/<int:task_id>/complete")
     def complete_task(task_id):
         task = store.complete_task(task_id)
         if task is None:
-            return jsonify({"error": "not_found"}), 404
+            abort(404)
+        bust_list_cache()
         return jsonify(task)
 
     @app.delete("/tasks/<int:task_id>")
     def delete_task(task_id):
-        if store.delete_task(task_id):
-            return jsonify({"deleted": task_id})
-        return jsonify({"error": "not_found"}), 404
+        if not store.delete_task(task_id):
+            abort(404)
+        bust_list_cache()
+        return jsonify({"deleted": task_id})
 
     @app.post("/tasks/sync")
     def sync_tasks():
-        payload = request.get_json() or {}
-        tasks = store.merge_tasks(payload.get("tasks", []))
+        # Sync requires a JSON object: unparseable bodies, wrong content
+        # types, and non-object documents are all client errors (400),
+        # matching POST /tasks instead of leaking a 415/500.
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict):
+            abort(400)
+        incoming = payload.get("tasks", [])
+        if not isinstance(incoming, list):
+            abort(400)
+        for item in incoming:
+            # Every item must be an object with an integer id; anything else
+            # is a client error, not a KeyError 500 mid-merge.
+            if not isinstance(item, dict):
+                abort(400)
+            item_id = item.get("id")
+            if isinstance(item_id, bool) or not isinstance(item_id, int):
+                abort(400)
+        tasks = store.merge_tasks(incoming)
+        bust_list_cache()
         return jsonify({"synced": len(tasks)})
 
     @app.post("/tasks/gc")
     def gc_tasks():
         kept = store.gc_stale_tasks()
+        bust_list_cache()
         return jsonify({"kept": kept})
 
     return app

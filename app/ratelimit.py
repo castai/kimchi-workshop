@@ -8,6 +8,9 @@ class SlidingWindowLimiter:
 
     When the limit is hit, requests receive a 429 rather than blocking
     (fair for an API; the caller retries after the window slides).
+
+    Thread-safe: the sliding window is only ever mutated under an internal
+    lock, so concurrent try_acquire calls cannot race or miscount.
     """
 
     def __init__(self, limit, window):
@@ -26,10 +29,3 @@ class SlidingWindowLimiter:
                 return False, retry_after
             self._events.append(now)
             return True, 0.0
-
-    def acquire(self):
-        """Block until allowed (kept for compatibility)."""
-        allowed, retry = self.try_acquire()
-        while not allowed:
-            time.sleep(min(retry, 0.1))
-            allowed, retry = self.try_acquire()
