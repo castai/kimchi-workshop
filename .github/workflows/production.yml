@@ -118,25 +118,41 @@ jobs:
           print(f"is_submission={ok}")
           EOF
 
-      # The production artifact can be the UNAVAILABLE fallback that
-      # score-pr.yml emits when hidden tests were never fetched (fork PRs
-      # receive no secrets). Downstream LLM framing and auto-review must
-      # ONLY run on a real log: framing the fallback has produced
-      # hallucinated reports (fix lists for files that do not exist in this
-      # repo), and auto-review blocks on a fabricated 0/26 that no
-      # participant can ever clear from a fork.
+      # Trust PROVENANCE, not artifact content. prod_log.md comes from a
+      # run that executes PR code (score-pr.yml checks out the PR head and
+      # participants control .verification/ at test time), so a fork PR can
+      # simply write "Production score: 26/26" into the artifact. The marker
+      # contract alone is therefore forgeable. Only same-repo runs can ever
+      # hold HIDDEN_TESTS_GIST, so: fork run => the log can never be real
+      # production data, regardless of what it says.
       - name: Detect production data availability
         id: data
+        env:
+          HEAD_REPO: ${{ github.event.workflow_run.head_repository.full_name }}
+          BASE_REPO: ${{ github.repository }}
         run: |
           LOG=artifacts/prod/prod_log.md
           PROD_DATA=unavailable
-          if [ -f "$LOG" ] \
+          REASON=broken-log
+          if [ "$HEAD_REPO" != "$BASE_REPO" ]; then
+            # Fork run: secrets are withheld, the hidden suite was never
+            # fetched, and the artifact log is untrusted PR output.
+            REASON=fork
+          elif [ -f "$LOG" ] \
             && ! grep -q 'PRODUCTION_SUITE: UNAVAILABLE' "$LOG" \
             && grep -qE 'Production score: [0-9]+/[0-9]+' "$LOG"; then
             PROD_DATA=available
+            REASON=ok
+          else
+            # Same-repo run with no parseable real log: the hidden suite
+            # crashed or formatting failed. This is an operational break,
+            # not a participant state - surface it instead of mislabeling
+            # it as the fork case.
+            echo "::warning::production run produced no parseable log for a same-repo submission; framing/auto-review skipped, facilitator should investigate"
           fi
           echo "prod_data=$PROD_DATA" >> "$GITHUB_OUTPUT"
-          echo "prod_data=$PROD_DATA"
+          echo "reason=$REASON" >> "$GITHUB_OUTPUT"
+          echo "prod_data=$PROD_DATA reason=$REASON"
 
           # Visible-suite numbers for the honest status comment. score.json
           # comes from a run that executes PR code, so sanitize both values
@@ -286,6 +302,7 @@ jobs:
         if: always() && steps.meta.outputs.is_submission == 'true' && steps.data.outputs.prod_data == 'unavailable'
         env:
           VISIBLE_LABEL: ${{ steps.data.outputs.visible_label }}
+          PROD_REASON: ${{ steps.data.outputs.reason }}
         uses: actions/github-script@v7
         with:
           script: |
@@ -293,11 +310,14 @@ jobs:
             const visible = label !== "unavailable"
               ? `Visible suite: **${label}** passing (from the scoring run).`
               : "Visible suite: result unavailable (check the Score submission PR run).";
+            const prod = process.env.PROD_REASON === "fork"
+              ? "Production suite: **not run** — the hidden scenario suite is not available to fork PR runs (CI secrets are withheld from forks by design), so no production score was produced for this push. Any score-like text in the build artifacts is untrusted and ignored."
+              : "Production suite: **produced no parseable report** — a same-repo run should have had real data, so a facilitator has been asked (via a job warning) to investigate. Auto-review is skipped until a real production log exists.";
             const body = [
               "## Production report — not run for this push",
               "",
               visible,
-              "Production suite: **not run** — the hidden scenario suite is not available to fork PR runs (CI secrets are withheld from forks by design), so no production score was produced for this push.",
+              prod,
               "",
               "Nothing above is a real failure. Auto-review gating is skipped when there is no production data; a facilitator reviews and applies the `accepted` label per `workshop/FACILITATOR.md`.",
             ].join("\n");
