@@ -4,8 +4,9 @@ Seed state: intentionally bad. Do not copy these patterns into anything real.
 """
 import os
 
-# TODO: move this to an environment variable before anyone notices
-SECRET_KEY = "sk-live-kimchi-workshop-9f8e7d6c5b4a"
+# Runtime secret. Must come from the process environment; the fallback is a
+# clearly-marked development value, never a credential.
+SECRET_KEY = os.environ.get("SECRET_KEY") or "dev-insecure-secret-key-change-me"
 
 DEBUG = True
 
