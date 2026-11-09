@@ -58,9 +58,9 @@ class TaskStore:
     def merge_tasks(self, incoming):
         """Merge tasks from a sync payload (id, title, priority, status).
 
-        BUG: blindly overwrites the local task when incoming is older -
-        last-writer-wins by incoming. The intended policy: keep whichever
-        task has the later updated_at; on equal timestamps, keep local.
+        Policy: keep whichever task has the later updated_at; on equal
+        timestamps, keep local. An incoming task with no updated_at never
+        overwrites local.
         """
         with self._lock:
             data = self._read()
@@ -69,7 +69,7 @@ class TaskStore:
                 tid = inc["id"]
                 if tid in by_id:
                     local = by_id[tid]
-                    if _parse(inc.get("updated_at", "")) >= _parse(local.get("updated_at", "")):
+                    if _parse(inc.get("updated_at", "")) > _parse(local.get("updated_at", "")):
                         local.update(inc)
                 else:
                     by_id[tid] = dict(inc)
