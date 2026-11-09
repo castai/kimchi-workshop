@@ -8,7 +8,9 @@ import os
 # explicitly-marked development-only value, never a real credential.
 SECRET_KEY = os.environ.get("SECRET_KEY", "dev-insecure-key-do-not-use-in-prod")
 
-DEBUG = True
+# Debug mode: env-gated, off by default. An exposed Werkzeug debugger in
+# production is a remote-code-execution risk.
+DEBUG = os.environ.get("FLASK_DEBUG", "false").lower() == "true"
 
 # Workshop tuning knobs (all overridable by env for tests)
 STALE_DAYS = int(os.environ.get("STALE_DAYS", "7"))

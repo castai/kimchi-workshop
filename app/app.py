@@ -1,4 +1,6 @@
 """Ferment Board API. Small Flask app used for the workshop challenges."""
+import math
+
 from flask import Flask, abort, jsonify, request
 
 from app.cache import TTLCache
@@ -20,9 +22,18 @@ def create_app():
 
     @app.before_request
     def rate_limit():
+        if request.path == "/health":
+            return None  # probes must never be throttled
         allowed, retry_after = limiter.try_acquire()
         if not allowed:
-            abort(429, description=f"rate limited; retry after {retry_after:.1f}s")
+            retry = str(math.ceil(retry_after))
+            resp = jsonify({
+                "error": "rate_limited",
+                "message": f"rate limited; retry after {retry}s",
+            })
+            resp.status_code = 429
+            resp.headers["Retry-After"] = retry
+            return resp
 
     @app.get("/health")
     def health():
@@ -49,6 +60,7 @@ def create_app():
         title = payload.get("title")
         if not isinstance(title, str) or not title.strip():
             abort(400, description="title is required and must be a non-empty string")
+        title = title.strip()  # normalize before storing
         try:
             priority = validate_priority(payload.get("priority", 1))
         except ValueError as e:
@@ -82,9 +94,16 @@ def create_app():
     @app.post("/tasks/sync")
     def sync_tasks():
         payload = request.get_json(silent=True)
-        if not isinstance(payload, dict) or not isinstance(payload.get("tasks", []), list):
-            abort(400, description="request body must be a JSON object with a tasks list")
-        tasks = store.merge_tasks(payload.get("tasks", []))
+        tasks_in = payload.get("tasks") if isinstance(payload, dict) else None
+        if not isinstance(tasks_in, list) or not all(
+            isinstance(t, dict) and "id" in t for t in tasks_in
+        ):
+            abort(
+                400,
+                description="request body must be a JSON object with a tasks list, "
+                "each item an object with an id",
+            )
+        tasks = store.merge_tasks(tasks_in)
         cache.invalidate_prefix("tasks:list")
         return jsonify({"synced": len(tasks)})
 
