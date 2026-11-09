@@ -2,7 +2,7 @@
 import json
 import os
 import threading
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 
 
 class TaskStore:
@@ -25,9 +25,7 @@ class TaskStore:
             json.dump(data, f, indent=2)
 
     def _now(self):
-        # Naive UTC, same value as datetime.utcnow() without the deprecation
-        # warning; isoformat() output and naive-vs-naive comparisons are unchanged.
-        return datetime.now(timezone.utc).replace(tzinfo=None)
+        return datetime.utcnow()
 
     def gc_stale_tasks(self):
         """Remove tasks that have been open too long (over STALE_DAYS days).
