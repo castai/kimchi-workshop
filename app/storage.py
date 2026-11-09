@@ -54,6 +54,11 @@ class TaskStore:
                     or t.get("completed_at")
                     or t.get("created_at")
                 )
+                if not last_activity:
+                    # Malformed or legacy record with no timestamps: keep it.
+                    # Deleting unparseable data is destructive.
+                    kept.append(t)
+                    continue
                 if _parse(last_activity) >= cutoff:
                     kept.append(t)
             data["tasks"] = kept

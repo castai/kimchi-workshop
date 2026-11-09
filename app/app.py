@@ -22,6 +22,8 @@ def create_app():
 
     @app.before_request
     def rate_limit():
+        if request.path == "/health":
+            return None
         allowed, _retry_after = limiter.try_acquire()
         if not allowed:
             abort(429)
@@ -46,8 +48,13 @@ def create_app():
     @app.post("/tasks")
     def create_task():
         payload = request.get_json(silent=True) or {}
+        if not isinstance(payload, dict):
+            abort(400)
         title = payload.get("title")
-        if not isinstance(title, str) or not title.strip():
+        if not isinstance(title, str):
+            abort(400)
+        title = title.strip()
+        if not title:
             abort(400)
         try:
             priority = validate_priority(payload.get("priority", 1))
@@ -81,8 +88,16 @@ def create_app():
 
     @app.post("/tasks/sync")
     def sync_tasks():
-        payload = request.get_json() or {}
-        tasks = store.merge_tasks(payload.get("tasks", []))
+        # Sync requires a JSON object: unparseable bodies, wrong content
+        # types, and non-object documents are all client errors (400),
+        # matching POST /tasks instead of leaking a 415/500.
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict):
+            abort(400)
+        incoming = payload.get("tasks", [])
+        if not isinstance(incoming, list):
+            abort(400)
+        tasks = store.merge_tasks(incoming)
         bust_list_cache()
         return jsonify({"synced": len(tasks)})
 
