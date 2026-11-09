@@ -1,16 +1,3 @@
 {
-  "registrations": [
-    {
-      "name": "",
-      "designation": "EM",
-      "org": "Kimchi",
-      "email": "",
-      "github_handle": "linkas45",
-      "event_code": "SLC-001",
-      "issue_number": 93,
-      "joined_at": "2026-11-09T19:22:11.031445+00:00",
-      "start_time": "2026-11-09T19:22:11.031454+00:00",
-      "credit_status": "pending"
-    }
-  ]
+  "registrations": []
 }
